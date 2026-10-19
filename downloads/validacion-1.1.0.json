@@ -1,0 +1,27 @@
+{
+  "version": "1.1.0",
+  "application_tests": {
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0,
+    "includes_virtual_display_ui": true
+  },
+  "packaging_tests": {
+    "passed": 8,
+    "failed": 0
+  },
+  "wine_10_exe_smoke_test": {
+    "interfaz": "DJI REPAIR Studio 1.1.0",
+    "ventanas_principales": 1,
+    "generador": "55 0d 04 33 0a 04 00 00 40 00 01 e6 2a",
+    "analizador_payload": "01",
+    "python": "3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:20:25) [MSC v.1942 64 bit (AMD64)]",
+    "usb_backend_cargado": true,
+    "operaciones_usb_ejecutadas": 0
+  },
+  "native_windows_tested": false,
+  "real_dji_hardware_tested": false,
+  "common_controls_manifest": "6.0.0.0",
+  "exe_sha256": "ec52618c46cce2fe8cb8cf638278bea6d4cae7a80f322d13348a0c1f98d50354",
+  "percentage_basis": "Queries / acknowledgments / distinct observed calibration milestones; no time inference"
+}

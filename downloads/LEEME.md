@@ -1,29 +1,29 @@
-# DJI REPAIR Studio 1.0.1
+# DJI REPAIR Studio 1.1.0
 
-[Descargar el programa para Windows x64](https://github.com/Joba91/Joba91/raw/refs/heads/main/downloads/DJI_Repair_Studio_1.0.1.zip)
+[Descargar para Windows x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.1.0.zip)
 
-Extrae el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.0.1.exe**.
-Incluye su propio entorno de ejecucion; no necesita la instalacion anterior,
-Python instalado ni la carpeta `_internal` anterior. USB requiere un controlador
+Extrae el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.1.0.exe**.
+Incluye su propio entorno; no necesita Python instalado ni los archivos de la versión anterior.
+
+Una sola ventana, botones de ejecución en el lateral izquierdo, opciones en pestañas
+y barra con porcentaje. Se retira el nombre anterior de todos los controles visibles.
+
+El porcentaje de calibración cuenta hitos recibidos; no mide tiempo restante ni avance
+físico continuo. Sin datos verificables se muestra una barra de espera. Un 100 % de
+consultas de módulos solo indica que finalizaron las consultas.
+
+Se conserva la corrección del error «ordinal 380». USB requiere un controlador
 compatible de Windows; el programa no instala ni cambia controladores.
 
-Conserva DJI REPAIR y el panel YanDron reconstruido. Incluye analizador/generador
-de paquetes, lectura de progreso y calibraciones experimentales JointCoarse y
-LinearHall para los modelos declarados por el programa de origen. No implementa
-movimiento manual por ejes ni copia los coeficientes IMU fijos de YanDron.
+[Ver la interfaz](interfaz-1.1.0.png) · [Cambios](CAMBIOS-1.1.0.md)
 
-**Antes de calibrar, lee LEEME.txt dentro del ZIP.** El programa de origen advierte
-posibles errores 40011/40021. No se promete corregir esos errores.
+Antes de calibrar lee **LEEME.txt** dentro del ZIP. Las calibraciones siguen siendo
+experimentales y pueden provocar errores 40011/40021. Mavic 4 Pro y Classic conservan
+consultas de información, sin estas calibraciones habilitadas. No se añade movimiento
+manual por ejes ni se escriben coeficientes IMU fijos.
 
-La version 1.0.1 corrige el error de inicio **ordinal 380**: incorpora el manifiesto
-que selecciona Microsoft.Windows.Common-Controls v6. No cambia DLL del sistema
-ni solicita privilegios de administrador. El codigo y protocolos de la aplicacion
-se conservan sin cambios.
+Validación: 38 pruebas de aplicación/interfaz y 8 de empaquetado; arranque del EXE bajo
+Wine 10 sin comunicación con un dron. Pendiente de validar en Windows nativo y con
+hardware DJI real. Incluye fuentes, pruebas, licencias y resultados de verificación.
 
-Pasaron 7 comprobaciones nuevas del empaquetado (recursos PE, checksum, dependencias
-y preservacion del payload). La prueba anterior bajo Wine no detecto la ausencia
-del manifiesto. Falta comprobar esta correccion en Windows nativo; tampoco se ha
-validado con hardware DJI real.
-El ZIP incluye fuentes, licencias e instrucciones detalladas.
-
-La integridad de la descarga se puede verificar con `SHA256SUMS.txt`.
+La integridad de la descarga se comprueba con **SHA256SUMS.txt**.
