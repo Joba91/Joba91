@@ -1,4 +1,4 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.1
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.2
 
 Estado: diagnóstico sin conexión implementado. El módulo de calibración completo
 sigue pendiente; lectura USB, descarga e instalación no están habilitadas.
@@ -14,6 +14,11 @@ sigue pendiente; lectura USB, descarga e instalación no están habilitadas.
    `binary` (bytes crudos), `hexlog` (texto HEX), `djilog` (registros DJI Test) y `auto`. `.bin/.raw/.dump` se
    consideran binarios en auto. Los registros admiten UTF-8/UTF-16/GB18030 y volcados HEX
    con marcas TX/RX o direcciones de línea. Para otros formatos, falta evidencia.
+   Cuando contiene los registros binarios de percepción contrastados, abre
+   **Sensores del registro**: SN desde payload, posición histórica, línea y contraste
+   con etiqueta. Los datos no identifican el dron conectado. Los bloques inválidos
+   permanecen desconocidos. Se muestran hasta 200; el contraste de etiquetas usa
+   la vista limitada de etiquetas del archivo.
 5. **Identificación visión** informa por qué la consulta activa no está disponible.
 6. Opcional: escribe un servidor autorizado `https://host:puerto` y pulsa
    **Comprobar servidor visión**. No hay dirección ni comprobación automática.
@@ -53,6 +58,8 @@ la lectura local; no actúa sobre el dron.
 - `vision_protocol.py`: tramas, codificaciones y detección de formato.
 - `vision_history.py`: capa CMD/ACK de registros DJI; distingue duplicados, ecos y
   correlación. Reutiliza el CRC de `studio_protocol.py`.
+- `vision_sensor_records.py`: conversión binaria de registros de sensores 24/26,
+  independiente de las DLL y sin consultas USB.
 - `vision_interfaces.py`: contratos de transporte pasivo, identificación y proveedor
   de calibraciones. Proveedor local y estado explícito de identificación no disponible.
 - `vision_services.py`: proveedor de servicios configurable y sondeo en un proceso
@@ -72,10 +79,12 @@ Se recibieron el informe de análisis y un ZIP reducido con 89 registros y dos
 configuraciones cifradas. La revisión confirmó 734 tramas CMD/ACK con CRC válido,
 150 ACK distintos y la presencia histórica de VID/PID/interfaz. Los registros
 mezclan fechas/estaciones/modelos; no prueban compatibilidad con el dron actual.
-No se han recibido las DLL del paquete Mini 4 Pro, los descriptores del equipo
-actual ni los 16 archivos/manifiesto MD5 descritos en el informe.
+Se recibieron y analizaron estáticamente DJI_Protocol_Comm.dll y
+dji_test_userlibs.dll: el nuevo decodificador recupera 184 SN de payloads, todos
+coincidentes con etiquetas históricas; cuatro bloques quedan desconocidos.
+Faltan descriptores del equipo actual y los 16 archivos/manifiesto MD5 del informe.
 
-[Resultados y próximos archivos necesarios](INVESTIGACION-REGISTROS-MINI4PRO.md).
+[Resultados del análisis y evidencia pendiente](INVESTIGACION-REGISTROS-MINI4PRO.md).
 Los nombres de funciones del informe no se usan como firmas para invocar DLL.
 La arquitectura y las dependencias se deben verificar contra los binarios reales.
 No se han consultado los servidores históricos ni se han utilizado sus credenciales.
@@ -90,7 +99,7 @@ ante fallos y pruebas físicas. Ninguna de estas etapas se declara completada.
 
 ## Verificación
 
-Consulta `validacion-1.2.1.json` y `test-results-1.2.1.txt` para los resultados de
+Consulta `validacion-1.2.2.json` y `test-results-1.2.2.txt` para los resultados de
 esta entrega. Las pruebas cubren tramas válidas, CRC dañados, truncadas, concatenadas,
 longitudes incorrectas, recuperación, manifiestos, errores de importación, cancelación,
 límites, bloqueo de USB, sondeo solo solicitado y exportación desde la interfaz.

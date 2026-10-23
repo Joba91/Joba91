@@ -1,83 +1,117 @@
-# Investigación de los registros recibidos · DJI REPAIR Studio 1.2.1
+# Investigación de DLL y registros · DJI REPAIR Studio 1.2.2
 
-Se analizó sin ejecutar programas ni cargar DLL el ZIP de configuración/registros
-aportado por el usuario. Los archivos originales y números de serie no se incluyen
-en esta publicación. Tampoco se contactaron servidores DJI ni un dron.
+Se analizaron estáticamente los dos binarios recibidos y se contrastaron sus
+estructuras con los 89 registros anteriores. No se cargaron ni ejecutaron las DLL.
+No se contactó un dron ni los servidores históricos. Los originales, las series
+reales y los datos de autenticación no se redistribuyen.
 
-## Resultados verificables
+## Binarios comprobados
 
-- 89 registros y dos configuraciones cifradas; no hay DLL, descriptores USB ni
-  manifiestos/archivos de calibración en este ZIP reducido.
-- 367 registros CMD y 367 registros ACK: 734 tramas completas. Todas coinciden con
-  la longitud declarada y los CRC de cabecera/trama del informe.
-- Las 367 entradas ACK contienen **150 tramas diferentes**. Se confirma ese recuento
-  sobre estos registros; una etiqueta ACK no acredita éxito de una operación.
-- 175 asociaciones CMD/ACK tienen direcciones inversas, conjunto/comando, secuencia
-  y bit de respuesta concordantes. Su resultado de aplicación sigue sin interpretar.
-- Cuatro entradas ACK son idénticas al CMD anterior: ecos, no respuestas confirmadas.
-- 188 asociaciones registradas no cumplen la correlación de cabeceras usada arriba.
-  No se ha relajado el cliente USB para aceptarlas como respuestas.
-- 81 registros no son UTF-8 y se leyeron con GB18030; ocho son UTF-8/ASCII. El lector anterior trataba
-  todo como UTF-8. El nuevo conserva la codificación identificada.
+| Archivo | Tamaño | Arquitectura | Exportaciones | SHA-256 |
+| --- | ---: | --- | ---: | --- |
+| DJI_Protocol_Comm.dll | 527872 | PE32 x86 | 375 | `774f678f9b47684c0459edd256eb8e908373fc072ba56573fdd3379355f5aa8a` |
+| dji_test_userlibs.dll | 8811520 | PE32 x86 | 1081 | `03a04ab846defd1be8fe5a36dd5c03b8c5389bf264f3ac3bb9782a5a033b0c83` |
 
-## Sensores y contexto histórico
+Los recuentos coinciden con el informe anterior. Eso no demuestra por sí solo la
+versión comercial del paquete ni compatibilidad con el firmware del usuario.
+Ambos binarios necesitan dependencias C++ y contexto del framework; no son una API
+C independiente que pueda llamarse directamente desde el EXE x64.
 
-Hay 188 peticiones de la familia `24/26`, asociadas en los registros al flujo
-`GetPerceptionSN`. Cuatro payloads de petición difieren en su último selector:
-`04`, `08`, `40`, `80`. Se observan etiquetas `frontleft`, `frontright`, `backleft`
-y `backright`, respectivamente. Esto describe la asociación histórica observada;
-no demuestra que sean funciones de solo lectura en el firmware del usuario.
+## Conversión de los números de serie
 
-Se encontraron 184 etiquetas de serie alfanuméricas de 14 caracteres (46 por
-posición). El lector puede mostrar esas etiquetas con su línea de procedencia,
-identificadas expresamente como históricas. No identifica con ellas el equipo
-conectado ni deriva compatibilidad por unidad.
+En `dji_test_userlibs.dll`, `TSGetPerceptionSensorSN` comienza en RVA `0x119c80`.
+Construye una petición de la familia `24/26` y un payload de 15 bytes con una
+máscara de sensor. En RVA `0x11a5da` comprueba que el registro recibido tenga al
+menos 20 bytes, omite cuatro bytes y llama al conversor interno RVA `0x10f2f0`.
+Este no trata el SN completo como ASCII directo: combina campos binarios.
 
-Las 188 tramas etiquetadas ACK de esa familia tienen payload de 20 bytes, flags
-`00` y secuencia distinta de la petición. Las etiquetas de serie no aparecen como
-ASCII directo en esos payloads. Falta determinar su estructura y decodificación;
-no se presenta una conversión de serie inventada.
+El nuevo módulo propio `vision_sensor_records.py` interpreta únicamente el
+formato de 20 bytes contrastado, con prefijo `00 a0 00` y selector conocido.
+En el bloque siguiente de 16 bytes, los offsets empiezan en cero:
 
-Los registros abarcan distintas fechas y estaciones e incluyen referencias a
-WM162 y al software ET8DY35/WA140. El nombre de la carpeta no confirma que todo el
-tráfico corresponda al Mini 4 Pro. También aparecen flujos de modo fábrica,
-transferencia y copia de calibraciones. Ninguno de esos flujos se ha reproducido.
+| Parte del SN | Campo y conversión observada |
+| --- | --- |
+| Prefijo de tres caracteres | Bytes 7, 6, 5 en ese orden |
+| Código de proveedor | Byte 0; tabla nativa de cinco equivalencias o carácter alfanumérico |
+| Tres caracteres de fecha | Bytes 8, 9, 10 con alfabetos acotados de año, mes y día |
+| Dos caracteres adicionales | Bytes 2 y 1; cero binario se representa como ASCII `0` |
+| Dígito decimal | Nibble bajo del byte 11 |
+| Sufijo de cuatro caracteres | Bytes 12 a 15 |
 
-## USB y archivos pendientes
+Los bytes 3 y 4 y el nibble alto del byte 11 no se interpretan. No se infieren
+modelo, fecha civil, estado de salud, calibración ni compatibilidad de esos campos.
+Se rechazan valores que producirían NUL, interrogaciones o SN no alfanuméricos.
+El parser no reproduce las sustituciones con pérdida de la DLL como identidades válidas.
 
-Los registros muestran búsquedas con VID `2CA3`, PID `0020` e interfaz `4`, además
-de otras interfaces del dispositivo compuesto. **MI_04 es una interfaz, no una
-dirección de endpoint.** No hay `bEndpointAddress`, `wMaxPacketSize` ni descriptores
-que permitan fijar los endpoints del equipo actual.
+En los registros recibidos:
 
-Siguiente evidencia útil, de la misma versión del paquete Mini 4 Pro:
+- 188 bloques de la familia y tamaño observados.
+- **184 SN recuperados del payload y 184 coincidencias exactas** con sus etiquetas,
+  46 por cada posición histórica; ninguna discrepancia entre SN válidos y etiqueta.
+- Cuatro bloques sin SN válido permanecen desconocidos.
+- 188 selectores coinciden con la consulta adyacente registrada.
 
-- `bin/DJI_Protocol_Comm.dll`: analizar estáticamente apertura bulk, configuración
-  de transporte y uso de endpoints, sin cargarla ni ejecutar sus exportaciones.
-- `Up and Side Vision Cali Download/dji_test_userlibs.dll`: investigar el manejo
-  de las respuestas de sensores y sus dependencias de contexto/modo.
-- Descriptores USB del dron actual y su firmware para contrastar cualquier
-  conclusión estática. No deben cambiarse controladores para obtenerlos.
+Los selectores `04`, `08`, `40` y `80` se asocian históricamente con `frontleft`,
+`frontright`, `backleft` y `backright`. Esa posición no se asigna a un equipo actual.
+La tabla **Sensores del registro** muestra la conversión, la línea y el contraste
+con etiqueta cuando está disponible. La conversión no necesita una etiqueta.
+El contraste usa la vista limitada de hasta 200 etiquetas; no cuenta etiquetas
+que estén fuera de esa vista o después de la siguiente transacción.
 
-Las configuraciones recibidas están cifradas. Se conserva su inventario; no se
-reutilizan credenciales, cookies o tokens ni se elude autenticación. El sondeo
-manual de servidores de la aplicación no se ejecutó durante esta investigación.
+## Correlación de las respuestas
 
-## Cambio implementado y validación
+Las 188 entradas ACK de percepción tienen flags `00` y secuencia distinta del CMD.
+En la llamada nativa, RVA `0x11a4f8` a `0x11a534`, se observa el argumento `3` de
+filtrado. `V1Protocol::SendCmdandAck`, RVA `0x45580`, lo combina con `0x40` antes
+de construir `V1Filter` (RVA `0x414a0`): máscara `0x43`, bits 0, 1 y 6 activos.
+Esto documenta un filtro específico del framework; no es motivo para relajar
+el comprobador DUML genérico o declarar éxito sobre cualquier tráfico `24/26`.
+La secuencia, la concurrencia y el contexto de recepción necesitan validación
+antes de implementar una consulta activa propia.
 
-`vision_history.py` reconoce únicamente marcas explícitas de tráfico DJI. Prefiere
-la capa CMD/ACK y descarta su copia de la capa `cmd Send` para evitar doble conteo.
-Distingue ecos, asociación de registro y correlación de cabeceras, sin inferir éxito.
+Se conservan los resultados anteriores de framing: 367 CMD y 367 ACK, 734 tramas
+con longitud y CRC correctos, 150 ACK diferentes, 175 asociaciones con cabeceras
+concordantes, cuatro ecos y 188 asociaciones históricas sin esa correlación.
+Ocho registros son UTF-8/ASCII y 81 se leyeron con GB18030. El análisis evita
+contar dos veces la capa `cmd Send` y la capa CMD/ACK.
 
-En el conjunto recibido, el lector anterior contabilizaba 1107 tramas y 66
-incidencias al interpretar texto y copias de envíos como tráfico. El lector nuevo
-contabiliza las 734 tramas CMD/ACK, con cero incidencias de framing. La ausencia
-de errores de framing no es un diagnóstico de salud del dron.
+## Transporte USB
 
-Se agregaron pruebas con datos sintéticos de marcas CMD/ACK, duplicados, ecos,
-secuencias discordantes, CRC, registros truncados, GB18030/UTF-16, textos de
-autenticación ignorados y etiquetas históricas. Los resultados concretos de
-aplicación, empaquetado y ejecución bajo Wine están en `validacion-1.2.1.json`.
+Hay dos rutas distintas en `DJI_Protocol_Comm.dll`:
 
-La lectura USB, selección/descarga para un equipo e instalación siguen
-**deshabilitadas**. No hay validación en Windows nativo ni con hardware real.
+- **BulkComm**, utilizada en las búsquedas de los registros, toma los endpoints
+  de su configuración. El constructor obtiene `ep` y `in` (RVA `0x1cfea` y
+  `0x1cff6`); `_SearchDevice` copia los valores configurados a los campos de lectura
+  y escritura en RVA `0x20ab9` a `0x20acd`. `Read` y `Write` los pasan a
+  `usb_bulk_read` y `usb_bulk_write`, respectivamente.
+- **UsbComm** usa libusb 1.0. `_CheckNFindEP` (RVA `0x38e50`) recorre los
+  descriptores; RVA `0x39544` a `0x39562` examina atributos/dirección y conserva
+  endpoints de entrada/salida. `Read` (RVA `0x373b0`) y `Write` (RVA `0x37870`)
+  los pasan a `libusb_bulk_transfer`.
+
+Por tanto, estas DLL no proporcionan una pareja numérica de endpoints que pueda
+atribuirse al dron actual. Los registros indican VID `2CA3`, PID `0020` e interfaz
+`4`, junto con otras interfaces; **MI_04 no es una dirección de endpoint**.
+Las configuraciones suministradas están cifradas y no se han descifrado para
+reutilizar autenticación. El EXE propio no necesita las DLL oficiales.
+
+## Qué queda pendiente
+
+Para una consulta USB activa: descriptores del dron actual, modelo y firmware
+verificados, capturas de esta consulta en modo normal y una correlación de
+respuestas específica validada. El flujo histórico también contiene modo fábrica,
+transferencia y copia de calibración; no se ha reproducido ninguna de esas acciones.
+
+Para seleccionar o descargar calibración faltan los archivos/manifiesto reales,
+la correspondencia por sensor y un servicio autorizado vigente. La instalación
+requiere además protocolo, recuperación ante fallos y pruebas físicas por unidad.
+No se activan lectura USB, descarga ni escritura con esta entrega.
+
+## Validación de esta entrega
+
+Las pruebas sintéticas cubren conversión sin etiquetas, cuatro selectores,
+campos inválidos, límites de fecha, proveedor, nibble, CRC incorrecto, ecos,
+etiquetas discordantes y tabla de sensores sin identificar el equipo conectado.
+La ejecución del EXE bajo Wine analiza además los 89 registros reales; solo se
+publican los recuentos. Véanse `validacion-1.2.2.json` y los resultados de pruebas.
+Windows nativo y hardware real siguen sin probarse.

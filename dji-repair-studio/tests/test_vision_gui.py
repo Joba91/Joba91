@@ -53,6 +53,28 @@ class VisionGuiTests(unittest.TestCase):
         self.assertEqual(self.app.vision.reports['package']['state'],'error')
         self.assertEqual(len(self.app.vision.inventory.get_children()),0)
         self.assertIn('falló',self.app.vision.source.get())
+    def test_binary_sensor_table_and_export_preserve_historical_status(self):
+        from test_sensor_records import SensorRecordTests
+        from test_history import log_pair
+        from vision_history import analyze_dji_log
+        query,record=SensorRecordTests().frames()
+        result=analyze_dji_log(log_pair(query,record,'msg:Log: frontleft=ABCTAC10071234\n'))
+        self.app.vision.apply_report('capture',result)
+        view=self.app.vision
+        self.assertEqual(view.tabs.select(),str(view.sensor_page))
+        row=view.sensor_records.item(view.sensor_records.get_children()[0])
+        self.assertEqual(row['values'][:2],['ABCTAC10071234','coincide'])
+        self.assertIn('1 SN convertidos',view.sensor_summary.get())
+        self.assertEqual(view.reports['capture']['identity']['state'],'desconocido')
+    def test_new_capture_clears_old_sensor_table(self):
+        from test_sensor_records import SensorRecordTests
+        from test_history import log_pair
+        from vision_history import analyze_dji_log
+        query,record=SensorRecordTests().frames()
+        self.app.vision.apply_report('capture',analyze_dji_log(log_pair(query,record)))
+        self.app.vision.apply_report('capture',{'state':'error','detail':'Unreadable capture'})
+        self.assertEqual(self.app.vision.sensor_records.get_children(),())
+        self.assertIn('0 SN convertidos',self.app.vision.sensor_summary.get())
     def test_vision_tab_reveals_its_sidebar_actions(self):
         self.app.select_page('Visión Mini 4 Pro')
         self.app.after(100,self.app.quit);self.app.mainloop()

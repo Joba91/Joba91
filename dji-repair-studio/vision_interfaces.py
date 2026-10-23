@@ -27,8 +27,9 @@ class CalibrationProvider(Protocol):
 class UnavailableIdentification:
     def identify(self):
         return Evidence('desconocido',
-            'Lectura USB no disponible: faltan peticiones/respuestas contrastadas, '
-            'endpoints, identificación de sensores y efectos confirmados para Mini 4 Pro.',
+            'SN de registros históricos: conversión disponible en Analizar captura. '
+            'Lectura USB pendiente: faltan descriptores del equipo actual, correlación de respuestas '
+            'y validación de la consulta en modo normal para este firmware.',
             'Estado de implementación; no se contactó un dron',
             {'usb_enabled': False, 'write_enabled': False})
 

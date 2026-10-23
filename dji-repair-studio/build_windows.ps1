@@ -10,6 +10,6 @@ Check-Exit
 Check-Exit
 $LibUsb = & $Python -c "import pathlib, libusb_package; print(pathlib.Path(libusb_package.__file__).parent / 'libusb-1.0.dll')"
 Check-Exit
-& $Python -m PyInstaller --noconfirm --clean --onefile --windowed --name 'DJI REPAIR Studio 1.2.1' --add-binary "$LibUsb;." launch.py
+& $Python -m PyInstaller --noconfirm --clean --onefile --windowed --name 'DJI REPAIR Studio 1.2.2' --add-binary "$LibUsb;." launch.py
 Check-Exit
-Write-Host "EXE independiente: $PSScriptRoot\dist\DJI REPAIR Studio 1.2.1.exe"
+Write-Host "EXE independiente: $PSScriptRoot\dist\DJI REPAIR Studio 1.2.2.exe"

@@ -1,4 +1,4 @@
-# DJI REPAIR Studio 1.2.1
+# DJI REPAIR Studio 1.2.2
 
 Aplicación de una sola ventana con módulo de diagnóstico de visión Mini 4 Pro
 sin conexión. No implementa calibración óptica activa, lectura USB Mini 4 Pro,
@@ -22,4 +22,5 @@ Código base GPLv3: ver LICENSE-GPL-3.txt y avisos en archivos originales. El ZI
 de distribución incluye además licencias de las bibliotecas de ejecución.
 
 El lector histórico se contrastó con 89 registros reales recibidos: 734 tramas,
-150 ACK distintos. [Investigación y límites](INVESTIGACION-REGISTROS-MINI4PRO.md).
+150 ACK distintos. El decodificador propio de sensores recupera 184 SN desde
+payloads, con 184 coincidencias históricas; cuatro bloques inválidos siguen desconocidos. [Investigación y límites](INVESTIGACION-REGISTROS-MINI4PRO.md).

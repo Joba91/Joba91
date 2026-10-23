@@ -26,6 +26,7 @@ class VisionView(ttk.Frame):
         format_entry=ttk.Combobox(form,textvariable=self.format,values=('auto','binary','hexlog','djilog'),state='readonly',width=14);format_entry.grid(row=1,column=1,sticky='w',padx=8)
         self.controls=[(url_entry,'normal'),(timeout_entry,'readonly'),(format_entry,'readonly')]
         tabs=ttk.Notebook(self);tabs.grid(row=4,column=0,sticky='nsew',pady=5)
+        self.tabs=tabs
         files=ttk.Frame(tabs);files.columnconfigure(0,weight=1);files.rowconfigure(1,weight=1);tabs.add(files,text='Inventario local')
         ttk.Label(files,textvariable=self.source,wraplength=800).grid(row=0,column=0,sticky='w',pady=5)
         self.inventory=ttk.Treeview(files,columns=('size','digest','state'),show='tree headings')
@@ -33,6 +34,17 @@ class VisionView(ttk.Frame):
         for key,label,width in [('size','Bytes',75),('digest','MD5 calculado',220),('state','Lectura',100)]:
             self.inventory.heading(key,text=label);self.inventory.column(key,width=width)
         self.inventory.grid(row=1,column=0,sticky='nsew');scroll=ttk.Scrollbar(files,command=self.inventory.yview);scroll.grid(row=1,column=1,sticky='ns');self.inventory.configure(yscrollcommand=scroll.set)
+        sensors=ttk.Frame(tabs);sensors.columnconfigure(0,weight=1);sensors.rowconfigure(1,weight=1)
+        tabs.add(sensors,text='Sensores del registro');self.sensor_page=sensors
+        self.sensor_summary=tk.StringVar(value='Importa un registro con las acciones del lateral.')
+        ttk.Label(sensors,textvariable=self.sensor_summary,wraplength=820).grid(row=0,column=0,sticky='w',pady=5)
+        self.sensor_records=ttk.Treeview(sensors,columns=('serial','label','line'),show='tree headings')
+        self.sensor_records.heading('#0',text='Posición histórica');self.sensor_records.column('#0',width=150)
+        for key,label,width in [('serial','SN desde payload',180),('label','Contraste con etiqueta',210),('line','Línea ACK',85)]:
+            self.sensor_records.heading(key,text=label);self.sensor_records.column(key,width=width)
+        self.sensor_records.grid(row=1,column=0,sticky='nsew')
+        scroll=ttk.Scrollbar(sensors,command=self.sensor_records.yview);scroll.grid(row=1,column=1,sticky='ns');self.sensor_records.configure(yscrollcommand=scroll.set)
+        ttk.Label(sensors,text='Datos históricos. No identifican el dron conectado ni confirman salud, calibración o éxito de comandos.',wraplength=820).grid(row=2,column=0,sticky='w',pady=5)
         detail=ttk.Frame(tabs);detail.columnconfigure(0,weight=1);detail.rowconfigure(0,weight=1);tabs.add(detail,text='Resultados y evidencia')
         self.details=tk.Text(detail,wrap='word',font=('Consolas',9),state='disabled');self.details.grid(row=0,column=0,sticky='nsew')
         scroll=ttk.Scrollbar(detail,command=self.details.yview);scroll.grid(row=0,column=1,sticky='ns');self.details.configure(yscrollcommand=scroll.set)
@@ -41,6 +53,16 @@ class VisionView(ttk.Frame):
 
     def apply_report(self,category,data):
         self.reports[category]=data
+        if category=='capture':
+            self.sensor_records.delete(*self.sensor_records.get_children())
+            records=data.get('perception_records',{});counts=records.get('counts',{})
+            self.sensor_summary.set(f"{counts.get('decoded',0)} SN convertidos · {counts.get('label_matches',0)} etiquetas coincidentes · "
+                f"{counts.get('label_mismatches',0)} diferencias · {counts.get('unknown_layout_or_invalid_serial',0)} registros sin SN válido. "
+                'Se muestran como máximo 200 registros; el contraste de etiquetas usa su vista limitada.')
+            for record in records.get('observations_preview',[]):
+                self.sensor_records.insert('', 'end',text=record.get('role_historical','desconocida'),values=(
+                    record.get('serial_from_payload','desconocido'),record['label_comparison'],record['line']))
+            if counts.get('records'):self.tabs.select(self.sensor_page)
         if category=='package':
             self.inventory.delete(*self.inventory.get_children())
             if 'files' in data:

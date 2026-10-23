@@ -54,7 +54,7 @@ def main():
         if '--validate-vision-log-folder' in sys.argv:
             from collections import Counter
             directory=Path(sys.argv[sys.argv.index('--validate-vision-log-folder')+1])
-            counts=Counter();encodings=Counter();associations=Counter();ack_fingerprints=set();complete=True
+            counts=Counter();encodings=Counter();associations=Counter();perception=Counter();ack_fingerprints=set();complete=True
             for path in sorted(directory.iterdir()):
                 if not path.is_file() or path.suffix.lower()!='.log':continue
                 result=analyze_capture(path);counts['files']+=1;counts['valid_frames']+=result['valid_frames'];counts['frame_issues']+=result['issue_count']
@@ -63,11 +63,13 @@ def main():
                 counts['labeled_cmd']+=result.get('historical_traffic',{}).get('record_counts',{}).get('CMD',0)
                 counts['labeled_ack']+=result.get('historical_traffic',{}).get('record_counts',{}).get('ACK',0)
                 associations.update(result.get('historical_traffic',{}).get('association_counts',{}))
+                perception.update(result.get('perception_records',{}).get('counts',{}))
                 complete=complete and result['valid_frames']<=result['preview_limit']
                 for frame in result['frames_preview']:
                     if frame.get('record_label')=='ACK':ack_fingerprints.add(frame['frame_sha256'])
             report['provided_log_corpus']={'counts':dict(counts),'encodings':dict(encodings),
-                'association_counts':dict(associations),'distinct_labeled_ack':len(ack_fingerprints) if complete else None,
+                'association_counts':dict(associations),'perception_records':dict(perception),
+                'distinct_labeled_ack':len(ack_fingerprints) if complete else None,
                 'hardware_tested':False,'usb_operations':0}
         if '--smoke-test-probe' in sys.argv:
             from vision_services import probe_server

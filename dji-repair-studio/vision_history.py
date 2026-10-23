@@ -7,6 +7,7 @@ import hashlib
 import re
 from collections import Counter
 from studio_protocol import checksum
+from vision_sensor_records import decode_perception_record, is_perception_record, request_selector
 
 LIMIT=100000
 PREVIEW=200
@@ -62,8 +63,8 @@ def analyze_dji_log(text,cancelled=lambda:False):
     # per file; keep Send only as a fallback and disclose the choice.
     selected=records if records else sends
     counts=Counter();distinct={'CMD':set(),'ACK':set(),'SEND':set()};frames=[];issues=[];pairs=[];pair_counts=Counter()
-    pending=None;valid_bytes=0
-    for number,direction,raw in selected:
+    pending=None;valid_bytes=0;perception=[];perception_counts=Counter()
+    for record_index,(number,direction,raw) in enumerate(selected):
         if cancelled():raise InterruptedError('Análisis histórico detenido')
         counts[direction]+=1;match=HEX.fullmatch(raw)
         data=bytes.fromhex(match[1]) if match else b''
@@ -79,6 +80,25 @@ def analyze_dji_log(text,cancelled=lambda:False):
             if pending:pair_counts['requests_without_adjacent_ack']+=1
             pending=(data,number)
         elif direction=='ACK':
+            if is_perception_record(data):
+                decoded=decode_perception_record(data[11:-2])
+                perception_counts['records']+=1
+                perception_counts['decoded' if decoded['state']=='confirmado' else 'unknown_layout_or_invalid_serial']+=1
+                decoded.update(line=number,label_comparison='sin_etiqueta_contrastable',
+                    header_correlation_confirmed=False,success_inferred=False)
+                # Association is still historical, even when selectors agree.
+                selector=request_selector(pending[0]) if pending else None
+                decoded['selector_agrees_with_adjacent_query']=(selector==decoded.get('selector')) if selector is not None else None
+                if selector is not None:
+                    perception_counts['selector_agreements' if decoded['selector_agrees_with_adjacent_query'] else 'selector_mismatches']+=1
+                boundary=selected[record_index+1][0] if record_index+1<len(selected) else len(lines)+1
+                labels=[s for s in sensors if number<s['line']<boundary
+                        and s['role_reported']==decoded.get('role_historical')]
+                if decoded['state']=='confirmado' and len(labels)==1:
+                    decoded['label_line']=labels[0]['line']
+                    decoded['label_comparison']='coincide' if labels[0]['serial_reported']==decoded['serial_from_payload'] else 'difiere'
+                    perception_counts['label_matches' if decoded['label_comparison']=='coincide' else 'label_mismatches']+=1
+                if len(perception)<PREVIEW:perception.append(decoded)
             if pending:
                 request,request_line=pending
                 if request==data:status='echo_no_confirma_respuesta'
@@ -101,6 +121,10 @@ def analyze_dji_log(text,cancelled=lambda:False):
             'ignored_send_layer_records':len(sends) if records else 0,'record_layer':'CMD/ACK' if records else 'SEND'},
         'historical_sensors':{'state':'desconocido','observations_preview':sensors,'preview_limit':PREVIEW,
             'invalid_or_empty_labels':invalid_sensors,'detail':'Son etiquetas del archivo, no números de serie leídos actualmente.'},
+        'perception_records':{'counts':dict(perception_counts),'observations_preview':perception,'preview_limit':PREVIEW,
+            'detail':'SN convertidos desde payloads históricos y comparados con etiquetas cuando están disponibles. '
+                     'La secuencia y el bit de respuesta siguen sin correlación confirmada; no prueba salud ni identidad actual.',
+            'current_device_confirmed':False,'usb_operations':0},
         'historical_usb':{'state':'confirmado' if usb else 'desconocido','observations':[
             {'vid':f'{k[0]:04x}','pid':f'{k[1]:04x}','interface':k[2],'occurrences':v} for k,v in usb.items()],
             'endpoints_confirmed':False,'current_device_confirmed':False,

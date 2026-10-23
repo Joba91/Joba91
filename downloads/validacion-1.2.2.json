@@ -1,0 +1,91 @@
+{
+  "version": "1.2.2",
+  "application_tests": {
+    "passed": 98,
+    "failed": 0,
+    "skipped": 0,
+    "includes_virtual_display_ui": true
+  },
+  "packaging_tests": {
+    "passed": 8,
+    "failed": 0
+  },
+  "wine_10_exe_smoke_test": {
+    "interfaz": "DJI REPAIR Studio 1.2.2",
+    "ventanas_principales": 1,
+    "generador": "55 0d 04 33 0a 04 00 00 40 00 01 e6 2a",
+    "analizador_payload": "01",
+    "python": "3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:20:25) [MSC v.1942 64 bit (AMD64)]",
+    "usb_backend_cargado": true,
+    "operaciones_usb_ejecutadas": 0,
+    "vision": {
+      "test_data": "synthetic; not the user calibration package",
+      "inventory_files": 2,
+      "md5_state": "confirmado",
+      "compatibility": "desconocido",
+      "identity": "desconocido",
+      "write_enabled": false,
+      "usb_enabled": false,
+      "framing_valid": true,
+      "historical_reader": {
+        "format": "djilog",
+        "encoding": "gb18030",
+        "valid_frames": 2,
+        "issues": 0
+      }
+    },
+    "provided_log_corpus": {
+      "counts": {
+        "files": 89,
+        "valid_frames": 734,
+        "frame_issues": 0,
+        "historical_sensor_labels": 184,
+        "labeled_cmd": 367,
+        "labeled_ack": 367
+      },
+      "encodings": {
+        "utf-8-sig": 8,
+        "gb18030": 81
+      },
+      "association_counts": {
+        "cabeceras_correlacionadas_resultado_desconocido": 175,
+        "echo_no_confirma_respuesta": 4,
+        "asociacion_del_registro_sin_correlacion_de_cabeceras": 188
+      },
+      "perception_records": {
+        "records": 188,
+        "decoded": 184,
+        "selector_agreements": 188,
+        "label_matches": 184,
+        "unknown_layout_or_invalid_serial": 4
+      },
+      "distinct_labeled_ack": 150,
+      "hardware_tested": false,
+      "usb_operations": 0
+    },
+    "loopback_probe_worker": {
+      "state": "error",
+      "detail": "No se pudo verificar la conexión TCP/TLS en el plazo solicitado; no prueba que el servidor esté apagado.",
+      "source": "Sondeo solicitado por el usuario"
+    }
+  },
+  "native_windows_tested": false,
+  "real_dji_hardware_tested": false,
+  "real_mini4_package_available": false,
+  "original_analysis_report_available": true,
+  "provided_historical_logs_available": true,
+  "historical_dji_servers_probed": false,
+  "provided_native_libraries_statically_analyzed": true,
+  "provided_native_libraries_loaded": false,
+  "provided_native_libraries_redistributed": false,
+  "native_library_sha256": {
+    "DJI_Protocol_Comm.dll": "774f678f9b47684c0459edd256eb8e908373fc072ba56573fdd3379355f5aa8a",
+    "dji_test_userlibs.dll": "03a04ab846defd1be8fe5a36dd5c03b8c5389bf264f3ac3bb9782a5a033b0c83"
+  },
+  "mini4_usb_enabled": false,
+  "calibration_download_enabled": false,
+  "mini4_write_enabled": false,
+  "common_controls_manifest": "6.0.0.0",
+  "exe_sha256": "667553accfa2e1b34139b875cbb7c3955446559ee55cae97af20ec116af4fddf",
+  "evidence_limits": "Two x86 DLLs statically analyzed. Independent parser decodes 184 sensor serial records, all matching historical labels; four invalid records stay unknown. Current device USB descriptors, normal-mode query validation and per-unit calibration compatibility remain unavailable."
+}
