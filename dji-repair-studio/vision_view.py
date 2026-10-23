@@ -9,9 +9,10 @@ class VisionView(ttk.Frame):
         super().__init__(master,padding=8)
         self.reports={};self.url=tk.StringVar();self.timeout=tk.StringVar(value='5')
         self.format=tk.StringVar(value='auto');self.source=tk.StringVar(value='Ningún paquete importado')
+        self.firmware=tk.StringVar();self.capture_seconds=tk.StringVar(value='5')
         self.columnconfigure(0,weight=1);self.rowconfigure(4,weight=1)
-        ttk.Label(self,text='Mini 4 Pro · diagnóstico de visión sin conexión',font=('Segoe UI',12,'bold')).grid(row=0,column=0,sticky='w')
-        ttk.Label(self,text='Implementación propia. No ejecuta DJI Test.exe ni carga DLL del paquete. Escritura y lectura USB de visión deshabilitadas.',wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
+        ttk.Label(self,text='Mini 4 Pro · archivos y recepción USB pasiva',font=('Segoe UI',12,'bold')).grid(row=0,column=0,sticky='w')
+        ttk.Label(self,text='USB pasivo: cierra otros clientes USB y conserva modo normal y controladores. Recibe sin peticiones de servicio ni DLL DJI. Consulta activa y calibración pendientes.',wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
         self.states=ttk.Treeview(self,columns=('state','detail'),show='tree headings',height=6)
         self.states.heading('#0',text='Comprobación');self.states.column('#0',width=130,minwidth=110,stretch=False)
         self.states.heading('state',text='Estado');self.states.column('state',width=105,stretch=False)
@@ -25,6 +26,11 @@ class VisionView(ttk.Frame):
         ttk.Label(form,text='Formato de captura').grid(row=1,column=0,sticky='w',pady=5)
         format_entry=ttk.Combobox(form,textvariable=self.format,values=('auto','binary','hexlog','djilog'),state='readonly',width=14);format_entry.grid(row=1,column=1,sticky='w',padx=8)
         self.controls=[(url_entry,'normal'),(timeout_entry,'readonly'),(format_entry,'readonly')]
+        ttk.Label(form,text='Firmware declarado (DJI Fly)').grid(row=2,column=0,sticky='w',pady=5)
+        firmware_entry=ttk.Entry(form,textvariable=self.firmware,width=16);firmware_entry.grid(row=2,column=1,sticky='w',padx=8)
+        ttk.Label(form,text='Recepción (s)').grid(row=2,column=2)
+        capture_entry=ttk.Combobox(form,textvariable=self.capture_seconds,values=('5','10'),state='readonly',width=5);capture_entry.grid(row=2,column=3)
+        self.controls.extend([(firmware_entry,'normal'),(capture_entry,'readonly')])
         tabs=ttk.Notebook(self);tabs.grid(row=4,column=0,sticky='nsew',pady=5)
         self.tabs=tabs
         files=ttk.Frame(tabs);files.columnconfigure(0,weight=1);files.rowconfigure(1,weight=1);tabs.add(files,text='Inventario local')
@@ -40,11 +46,12 @@ class VisionView(ttk.Frame):
         ttk.Label(sensors,textvariable=self.sensor_summary,wraplength=820).grid(row=0,column=0,sticky='w',pady=5)
         self.sensor_records=ttk.Treeview(sensors,columns=('serial','label','line'),show='tree headings')
         self.sensor_records.heading('#0',text='Posición histórica');self.sensor_records.column('#0',width=150)
-        for key,label,width in [('serial','SN desde payload',180),('label','Contraste con etiqueta',210),('line','Línea ACK',85)]:
+        for key,label,width in [('serial','SN desde payload',180),('label','Contraste con etiqueta',210),('line','Línea / offset',85)]:
             self.sensor_records.heading(key,text=label);self.sensor_records.column(key,width=width)
         self.sensor_records.grid(row=1,column=0,sticky='nsew')
         scroll=ttk.Scrollbar(sensors,command=self.sensor_records.yview);scroll.grid(row=1,column=1,sticky='ns');self.sensor_records.configure(yscrollcommand=scroll.set)
-        ttk.Label(sensors,text='Datos históricos. No identifican el dron conectado ni confirman salud, calibración o éxito de comandos.',wraplength=820).grid(row=2,column=0,sticky='w',pady=5)
+        self.sensor_provenance=tk.StringVar(value='Datos históricos. No identifican el dron conectado ni confirman salud, calibración o éxito de comandos.')
+        ttk.Label(sensors,textvariable=self.sensor_provenance,wraplength=820).grid(row=2,column=0,sticky='w',pady=5)
         detail=ttk.Frame(tabs);detail.columnconfigure(0,weight=1);detail.rowconfigure(0,weight=1);tabs.add(detail,text='Resultados y evidencia')
         self.details=tk.Text(detail,wrap='word',font=('Consolas',9),state='disabled');self.details.grid(row=0,column=0,sticky='nsew')
         scroll=ttk.Scrollbar(detail,command=self.details.yview);scroll.grid(row=0,column=1,sticky='ns');self.details.configure(yscrollcommand=scroll.set)
@@ -54,11 +61,13 @@ class VisionView(ttk.Frame):
     def apply_report(self,category,data):
         self.reports[category]=data
         if category=='capture':
+            live=data.get('origin')=='live_usb_passive'
+            self.sensor_provenance.set('Recepción USB actual; la asignación de posiciones procede de registros históricos. No confirma salud, calibración ni respuesta a una consulta.' if live else
+                'Datos históricos o archivo local. No identifican el dron conectado ni confirman salud, calibración o éxito de comandos.')
             self.sensor_records.delete(*self.sensor_records.get_children())
             records=data.get('perception_records',{});counts=records.get('counts',{})
             self.sensor_summary.set(f"{counts.get('decoded',0)} SN convertidos · {counts.get('label_matches',0)} etiquetas coincidentes · "
-                f"{counts.get('label_mismatches',0)} diferencias · {counts.get('unknown_layout_or_invalid_serial',0)} registros sin SN válido. "
-                'Se muestran como máximo 200 registros; el contraste de etiquetas usa su vista limitada.')
+                f"{counts.get('label_mismatches',0)} diferencias · {counts.get('unknown_layout_or_invalid_serial',0)} sin SN válido · vista: 200 máx.")
             for record in records.get('observations_preview',[]):
                 self.sensor_records.insert('', 'end',text=record.get('role_historical','desconocida'),values=(
                     record.get('serial_from_payload','desconocido'),record['label_comparison'],record['line']))

@@ -1,8 +1,10 @@
-# DJI REPAIR Studio 1.2.2
+# DJI REPAIR Studio 1.2.3
 
-Aplicación de una sola ventana con módulo de diagnóstico de visión Mini 4 Pro
-sin conexión. No implementa calibración óptica activa, lectura USB Mini 4 Pro,
-descarga de datos ni escritura. [Uso, arquitectura y bloqueos](VISION-MINI4PRO.md).
+Aplicación de una sola ventana con diagnóstico de archivos y recepción USB
+pasiva Mini 4 Pro. La captura recibe desde IN 85 de la interfaz 4 sin emitir
+peticiones de servicio. Perfil acotado a descriptores contrastados y firmware
+01.00.1100 declarado desde DJI Fly. No implementa consulta activa de sensores,
+calibración óptica activa, descarga de datos ni escritura. [Uso, arquitectura y bloqueos](VISION-MINI4PRO.md).
 
 ## Desarrollo
 

@@ -3,6 +3,8 @@ import re
 from pathlib import Path
 from studio_protocol import checksum
 from vision_history import analyze_dji_log, is_dji_log
+from vision_sensor_records import decode_perception_record, is_perception_record
+from collections import Counter
 
 MAX_CAPTURE = 32 * 1024**2
 MAX_FRAMES = 100000
@@ -12,6 +14,7 @@ class CaptureDecoder:
     def __init__(self):
         self.buffer=bytearray();self.offset=0;self.frames=[];self.total_frames=0
         self.issues=[];self.issue_count=0;self.discarded=0;self.sequence_frames=set()
+        self.perception=[];self.perception_counts=Counter()
 
     def issue(self,kind,detail):
         self.issue_count+=1
@@ -49,6 +52,13 @@ class CaptureDecoder:
             self.total_frames+=1
             if self.total_frames>MAX_FRAMES:raise ValueError('Captura supera 100000 tramas; analiza un fragmento menor')
             self.sequence_frames.add(frame)
+            if is_perception_record(frame):
+                record=decode_perception_record(frame[11:-2])
+                self.perception_counts['records']+=1
+                self.perception_counts['decoded' if record['state']=='confirmado' else 'unknown_layout_or_invalid_serial']+=1
+                record.update(line=f'offset {self.offset}',offset=self.offset,
+                    label_comparison='sin_etiqueta_contrastable',header_correlation_confirmed=False,success_inferred=False)
+                if len(self.perception)<PREVIEW:self.perception.append(record)
             if len(self.frames)<PREVIEW:
                 self.frames.append({'offset':self.offset,'length':size,'header_version_bits':frame[2]>>2,
                     'sender_raw':f'{frame[4]:02x}','receiver_raw':f'{frame[5]:02x}',
@@ -63,6 +73,9 @@ class CaptureDecoder:
                 'valid_frames':self.total_frames,'distinct_frames':len(self.sequence_frames),
                 'issue_count':self.issue_count,'discarded_bytes':self.discarded,'pending_bytes':len(self.buffer),
                 'frames_preview':self.frames,'issues_preview':self.issues,'preview_limit':PREVIEW,
+                'perception_records':{'counts':dict(self.perception_counts),'observations_preview':self.perception,
+                    'preview_limit':PREVIEW,'current_device_confirmed':False,
+                    'detail':'Conversión del formato binario observado; no valida consulta, salud o compatibilidad.'},
                 'identity':{'state':'desconocido','detail':'Las tramas no identifican por sí solas el dron o los sensores.'},
                 'detail':'Solo estructura y CRC; no se infieren comandos, salud ni compatibilidad óptica.'}
 
@@ -119,8 +132,8 @@ def analyze_capture(path, format='auto', cancelled=lambda:False):
     result=decode_bytes(raw,cancelled)
     result.update(source=str(source),format=format,encoding=encoding,source_bytes=len(data),analyzed_bytes=len(raw),
                   lines=lines,ignored_text_lines=ignored,
-                  declared_historical_usb={'state':'desconocido','vid':'2ca3','pid':'0020','interface':'MI_04',
-                    'detail':'Dato del texto recibido, sin registros originales contrastados; endpoints desconocidos.'},
-                  initial_150_ack_claim='Sin verificar: faltan registros originales; el contador actual no clasifica ACK desconocidos.')
+                  declared_historical_usb={'state':'desconocido',
+                    'detail':'Una captura de bytes no acredita por sí sola VID/PID, interfaz o endpoints del equipo actual.'},
+                  initial_150_ack_claim='Sin verificar en esta captura: el recuento histórico de ACK no se atribuye a bytes sin etiquetas.')
     if not raw:result['detail']='No se encontraron bytes HEX reconocibles. Prueba otro formato; no se interpreta como captura sana.'
     return result

@@ -33,6 +33,27 @@ def main():
             text='测试记录\nLog: CmdAndAck:\nCMD: '+generated+'\nACK: '+ack.hex(' ')+' ####\n'
             log=root/'history.log';log.write_bytes(text.encode('gb18030'))
             history=analyze_capture(log)
+            # Exercise the frozen capture pipeline with a synthetic receiver.
+            # This never constructs PassiveVisionUsbTransport or opens USB.
+            from vision_usb_passive import capture_passive
+            class SyntheticClock:
+                value=0
+                def __call__(self):return self.value
+            clock=SyntheticClock()
+            synthetic_sensor=bytes([0,160,0,4,84,0,0,0,0,67,66,65,13,12,1,7,49,50,51,52])
+            synthetic_frame=packet(0x12,0x2a,900,0x24,0x26,synthetic_sensor,flags=0)
+            class SyntheticReceiver:
+                attempts=0;timeouts=0;closed=False
+                evidence={'synthetic':True,'no_usb_opened':True}
+                def read(self):
+                    clock.value+=1;self.attempts+=1
+                    if self.attempts==1:return synthetic_frame
+                    self.timeouts+=1;return b''
+                def close(self):self.closed=True
+            receiver=SyntheticReceiver();passive_progress=[]
+            passive=capture_passive(root/'passive.bin','01.00.1100',transport_factory=lambda:receiver,
+                clock=clock,progress=passive_progress.append)
+            passive_frames=analyze_capture(root/'passive.bin','binary')
             vision_report={'test_data':'synthetic; not the user calibration package',
                 'inventory_files':inventory['file_count'],'md5_state':inventory['integrity']['state'],
                 'compatibility':LocalCalibrationProvider().compatibility(inventory,None).state,
@@ -40,7 +61,12 @@ def main():
                 'write_enabled':False,'usb_enabled':False,
                 'framing_valid':decode_bytes(bytes.fromhex(generated))['valid_frames']==1,
                 'historical_reader':{'format':history['format'],'encoding':history['encoding'],
-                    'valid_frames':history['valid_frames'],'issues':history['issue_count']}}
+                    'valid_frames':history['valid_frames'],'issues':history['issue_count']},
+                'passive_capture_synthetic_test':{'state':passive['state'],'bytes':passive['received_bytes'],
+                    'valid_frames':passive_frames['valid_frames'],
+                    'decoded_sensor_records':passive_frames['perception_records']['counts'].get('decoded',0),
+                    'receiver_closed':receiver.closed,'protocol_commands_sent':passive['protocol_commands_sent'],
+                    'last_percent':passive_progress[-1]['percent'],'real_usb_opened':False}}
         report = {
             'interfaz': app.title(),
             'ventanas_principales': 1 + sum(isinstance(w, tk.Toplevel) for w in app.winfo_children()),

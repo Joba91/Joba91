@@ -13,8 +13,8 @@ class Evidence:
         return asdict(self)
 
 class CaptureTransport(Protocol):
-    """Passive capture only. USB implementation deliberately absent."""
-    def read(self, size: int, timeout: float) -> bytes: ...
+    """Receive only; no write method or service-command API."""
+    def read(self) -> bytes: ...
     def close(self) -> None: ...
 
 class IdentificationProvider(Protocol):
@@ -28,10 +28,10 @@ class UnavailableIdentification:
     def identify(self):
         return Evidence('desconocido',
             'SN de registros históricos: conversión disponible en Analizar captura. '
-            'Lectura USB pendiente: faltan descriptores del equipo actual, correlación de respuestas '
-            'y validación de la consulta en modo normal para este firmware.',
+            'Capturar USB pasivo recibe tráfico sin peticiones de servicio. '
+            'La consulta activa de sensores sigue pendiente de validar en modo normal para este firmware.',
             'Estado de implementación; no se contactó un dron',
-            {'usb_enabled': False, 'write_enabled': False})
+            {'usb_enabled': False, 'passive_capture_available':True, 'active_sensor_query_enabled':False, 'write_enabled': False})
 
 class LocalCalibrationProvider:
     def candidates(self, inventory):

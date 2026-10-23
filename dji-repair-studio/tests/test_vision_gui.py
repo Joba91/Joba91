@@ -75,19 +75,43 @@ class VisionGuiTests(unittest.TestCase):
         self.app.vision.apply_report('capture',{'state':'error','detail':'Unreadable capture'})
         self.assertEqual(self.app.vision.sensor_records.get_children(),())
         self.assertIn('0 SN convertidos',self.app.vision.sensor_summary.get())
+    def test_passive_capture_requires_declared_firmware_before_usb_or_save_dialog(self):
+        with patch('studio_app.messagebox.showerror') as error,patch('studio_app.capture_passive') as capture,patch('studio_app.filedialog.asksaveasfilename') as save:
+            self.app.dispatch('Capturar USB pasivo')
+        error.assert_called_once();capture.assert_not_called();save.assert_not_called()
+        self.assertFalse(self.app.running)
+    def test_passive_capture_saves_received_bytes_and_exportable_receipt(self):
+        from test_passive_usb import Receiver,Clock
+        from test_sensor_records import sample
+        from studio_service import packet
+        from vision_usb_passive import capture_passive
+        clock=Clock();frame=packet(0x12,0x2a,900,0x24,0x26,sample(),flags=0)
+        receiver=Receiver(clock,[frame]);dest=self.root/'new-usb.bin'
+        self.app.vision.firmware.set('01.00.1100')
+        def simulated_capture(*args,**kwargs):
+            return capture_passive(*args,**kwargs,transport_factory=lambda:receiver,clock=clock)
+        with patch('studio_app.capture_passive',side_effect=simulated_capture),patch('studio_app.filedialog.asksaveasfilename',return_value=str(dest)),patch('studio_app.backend.open_serial_port') as legacy:
+            self.app.dispatch('Capturar USB pasivo');self.wait_idle()
+        legacy.assert_not_called();self.assertEqual(dest.read_bytes(),frame)
+        data=self.app.vision.reports['capture'];self.assertEqual(data['origin'],'live_usb_passive')
+        self.assertEqual(data['usb_capture']['protocol_commands_sent'],0)
+        self.assertEqual(data['perception_records']['counts']['decoded'],1)
+        self.assertIn('Recepción USB actual',self.app.vision.sensor_provenance.get())
+        self.assertEqual(len(self.app.vision.sensor_records.get_children()),1)
+        self.assertEqual(self.app.progress_value.get(),100)
     def test_vision_tab_reveals_its_sidebar_actions(self):
         self.app.select_page('Visión Mini 4 Pro')
         self.app.after(100,self.app.quit);self.app.mainloop()
         canvas=self.app.action_canvas
-        for button in self.app.operation_buttons[-5:]:
+        for button in self.app.operation_buttons[-6:]:
             self.assertGreaterEqual(button.winfo_rooty(),canvas.winfo_rooty())
             self.assertLessEqual(button.winfo_rooty()+button.winfo_height(),canvas.winfo_rooty()+canvas.winfo_height())
     def test_mini4_active_operations_never_open_transport(self):
         self.app.connection_text.set('consulta_completada')
         self.app.model.set('Mini 4 Pro')
-        self.assertIn('no habilitado',self.app.connection_text.get())
+        self.assertIn('consulta activa no habilitada',self.app.connection_text.get())
         self.assertTrue(all(str(b['state'])=='disabled' for b in self.app.operation_buttons[:11]))
-        self.assertTrue(all(str(b['state'])=='normal' for b in self.app.operation_buttons[-5:]))
+        self.assertTrue(all(str(b['state'])=='normal' for b in self.app.operation_buttons[-6:]))
         with patch('studio_app.messagebox.showinfo'),patch('studio_app.backend.open_serial_port') as device:
             for action in ('Identificar','Módulos','JointCoarse','Entrar modo fabrica','Cámara','Parámetros'):
                 self.app.dispatch(action)

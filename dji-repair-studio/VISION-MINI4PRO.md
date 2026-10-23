@@ -1,7 +1,7 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.2
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.3
 
-Estado: diagnóstico sin conexión implementado. El módulo de calibración completo
-sigue pendiente; lectura USB, descarga e instalación no están habilitadas.
+Estado: diagnóstico de archivos y recepción USB pasiva implementados. La consulta
+activa de sensores, descarga e instalación de calibraciones siguen pendientes.
 
 ## Uso
 
@@ -19,14 +19,29 @@ sigue pendiente; lectura USB, descarga e instalación no están habilitadas.
    con etiqueta. Los datos no identifican el dron conectado. Los bloques inválidos
    permanecen desconocidos. Se muestran hasta 200; el contraste de etiquetas usa
    la vista limitada de etiquetas del archivo.
-5. **Identificación visión** informa por qué la consulta activa no está disponible.
-6. Opcional: escribe un servidor autorizado `https://host:puerto` y pulsa
+5. **Capturar USB pasivo** recibe datos de IN `85`, interfaz `4`, sin enviar
+   peticiones de servicio. Requiere Mini 4 Pro, firmware **declarado** `01.00.1100`,
+   configuración 1 High-Speed, alternativa 0 y endpoints bulk IN `85` / OUT `04`
+   de 512 bytes. Escribe el firmware de DJI Fly en el campo correspondiente.
+   Cierra otros clientes USB del PC y conserva el modo normal. Elige un archivo
+   **nuevo** `.bin`; se conservan los archivos existentes.
+   La ventana de recepción es de 5/10 segundos tras abrir el dispositivo y tiene
+   límite de 1 MiB. El porcentaje mide ese tiempo, sin medir diagnóstico o calibración.
+   El análisis y la apertura tienen su propio tiempo. Detener conserva los bytes
+   recibidos. Una captura de cero bytes no demuestra avería: puede no existir tráfico
+   espontáneo sin una consulta activa. No captura la sesión USB de otra aplicación.
+   No se cambian drivers, configuración USB, alternativa, modo o firmware. No se
+   desprende el controlador ni se limpia un halt; los errores se informan. El acceso
+   exige un controlador ya compatible con libusb. La disponibilidad real se valida
+   en el PC del usuario; este entorno no tiene el dron conectado.
+6. **Identificación visión** informa por qué la consulta activa no está disponible.
+7. Opcional: escribe un servidor autorizado `https://host:puerto` y pulsa
    **Comprobar servidor visión**. No hay dirección ni comprobación automática.
    El sondeo verifica solo TCP/TLS y su certificado, sin HTTP, autenticación ni
    descarga. No acepta credenciales, tokens ni cookies en la URL. Los errores no
    demuestran que el servidor esté apagado. Se limita a 3/5/10 segundos, incluyendo
    DNS e inicio del proceso. El proveedor no implementa todavía la API de descarga.
-7. **Guardar informe** exporta los últimos resultados de cada categoría en JSON.
+8. **Guardar informe** exporta los últimos resultados de cada categoría en JSON.
    El inventario visual muestra hasta 500 archivos y los detalles hasta 200;
    el informe conserva todo el inventario y hasta 200 tramas/incidencias de muestra,
    junto con los contadores totales. Solo se conserva el último paquete/captura/servidor.
@@ -60,6 +75,8 @@ la lectura local; no actúa sobre el dron.
   correlación. Reutiliza el CRC de `studio_protocol.py`.
 - `vision_sensor_records.py`: conversión binaria de registros de sensores 24/26,
   independiente de las DLL y sin consultas USB.
+- `vision_usb_passive.py`: receptor restringido a IN; no expone escritura, fábrica,
+  reset, cambios de configuración o de driver. Guarda una captura nueva y sus métricas.
 - `vision_interfaces.py`: contratos de transporte pasivo, identificación y proveedor
   de calibraciones. Proveedor local y estado explícito de identificación no disponible.
 - `vision_services.py`: proveedor de servicios configurable y sondeo en un proceso
@@ -68,8 +85,9 @@ la lectura local; no actúa sobre el dron.
 - `studio_app.py`: acciones laterales, trabajo en segundo plano, progreso e informes.
 
 No hay puente a DLL propietarias. Ninguna DLL del paquete se carga o redistribuye.
-La implementación nueva no tiene instalador de calibraciones ni escritura USB.
-Al seleccionar **Mini 4 Pro**, también se bloquean las acciones activas genéricas
+La implementación nueva no tiene instalador de calibraciones ni emisor de comandos
+de servicio Mini 4 Pro. Al seleccionar **Mini 4 Pro**, se bloquean las acciones
+activas genéricas
 de la aplicación, para que no se reutilice por accidente un protocolo de otro modelo.
 Los módulos anteriores para otros modelos conservan su comportamiento y restricciones.
 
@@ -82,16 +100,19 @@ mezclan fechas/estaciones/modelos; no prueban compatibilidad con el dron actual.
 Se recibieron y analizaron estáticamente DJI_Protocol_Comm.dll y
 dji_test_userlibs.dll: el nuevo decodificador recupera 184 SN de payloads, todos
 coincidentes con etiquetas históricas; cuatro bloques quedan desconocidos.
-Faltan descriptores del equipo actual y los 16 archivos/manifiesto MD5 del informe.
+Se recibió después el reporte UsbTreeView del Mini 4 Pro actual: interfaz 4,
+IN 85, OUT 04, 512 bytes; firmware 01.00.1100 declarado por el usuario. El receptor
+comprueba esos descriptores al abrir. No se ha validado acceso físico real ni
+consultas activas. Faltan los 16 archivos/manifiesto MD5 del informe.
 
 [Resultados del análisis y evidencia pendiente](INVESTIGACION-REGISTROS-MINI4PRO.md).
 Los nombres de funciones del informe no se usan como firmas para invocar DLL.
 La arquitectura y las dependencias se deben verificar contra los binarios reales.
 No se han consultado los servidores históricos ni se han utilizado sus credenciales.
 
-Para habilitar **lectura USB**: capturas con peticiones y respuestas completas,
-descriptores/endpoints reales, firmware, identificadores y efectos de comandos
-verificados. Para **descarga**: API/servicio vigentes, acceso autorizado, autenticación
+Para habilitar **consultas USB activas**: capturas con peticiones y respuestas
+completas en modo normal, correlación validada, identificadores y efectos de comandos
+verificados. La recepción pasiva no acredita esos requisitos. Para **descarga**: API/servicio vigentes, acceso autorizado, autenticación
 configurada sin reutilizar secretos del paquete y correspondencia demostrada entre
 identificadores de módulos/sensores y datos. Para una futura **escritura**: además,
 protocolo validado, correspondencia por unidad, secuencia transaccional, recuperación
@@ -99,10 +120,11 @@ ante fallos y pruebas físicas. Ninguna de estas etapas se declara completada.
 
 ## Verificación
 
-Consulta `validacion-1.2.2.json` y `test-results-1.2.2.txt` para los resultados de
+Consulta `validacion-1.2.3.json` y `test-results-1.2.3.txt` para los resultados de
 esta entrega. Las pruebas cubren tramas válidas, CRC dañados, truncadas, concatenadas,
 longitudes incorrectas, recuperación, manifiestos, errores de importación, cancelación,
 límites, bloqueo de USB, sondeo solo solicitado y exportación desde la interfaz.
 El lector se contrastó con los registros recibidos; falta validar el paquete completo,
-servidores DJI y hardware físico. Las etiquetas de serie del registro son históricas,
+servidores DJI y hardware físico. La ruta pasiva se prueba con receptores sintéticos
+y USB simulado, no con hardware. Las etiquetas de serie del registro son históricas,
 no una identificación del equipo conectado.

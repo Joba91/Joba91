@@ -1,4 +1,4 @@
-# Investigación de DLL y registros · DJI REPAIR Studio 1.2.2
+# Investigación de DLL y registros · DJI REPAIR Studio 1.2.3
 
 Se analizaron estáticamente los dos binarios recibidos y se contrastaron sus
 estructuras con los 89 registros anteriores. No se cargaron ni ejecutaron las DLL.
@@ -89,23 +89,41 @@ Hay dos rutas distintas en `DJI_Protocol_Comm.dll`:
   endpoints de entrada/salida. `Read` (RVA `0x373b0`) y `Write` (RVA `0x37870`)
   los pasan a `libusb_bulk_transfer`.
 
-Por tanto, estas DLL no proporcionan una pareja numérica de endpoints que pueda
-atribuirse al dron actual. Los registros indican VID `2CA3`, PID `0020` e interfaz
+Las DLL por sí solas no proporcionan una pareja numérica de endpoints
+atribuible al dron actual. Después se recibió un reporte UsbTreeView del usuario:
+Mini 4 Pro, configuración 1, High-Speed, interfaz 4 / alternativa 0, bulk
+OUT `0x04` e IN `0x85`, ambos de 512 bytes. La configuración tiene ocho interfaces.
+El usuario declara firmware de aeronave **01.00.1100** desde DJI Fly; `bcdDevice`
+`0x0504` no se interpreta como esa versión. La configuración de otra velocidad
+no se mezcla con la configuración High-Speed negociada. El controlador mostrado
+corresponde al dispositivo compuesto padre (`usbccgp.sys`); el informe no acredita
+el acceso del backend a la interfaz 4. No se recomiendan cambios de controladores.
+
+El reporte original contiene un identificador de unidad y permanece privado.
+Solo se conserva públicamente la descripción general de endpoints. Los registros indican VID `2CA3`, PID `0020` e interfaz
 `4`, junto con otras interfaces; **MI_04 no es una dirección de endpoint**.
 Las configuraciones suministradas están cifradas y no se han descifrado para
 reutilizar autenticación. El EXE propio no necesita las DLL oficiales.
 
 ## Qué queda pendiente
 
-Para una consulta USB activa: descriptores del dron actual, modelo y firmware
-verificados, capturas de esta consulta en modo normal y una correlación de
-respuestas específica validada. El flujo histórico también contiene modo fábrica,
+Los descriptores del reporte actual y la versión declarada permiten preparar
+una **recepción USB pasiva**. El nuevo transporte comprueba producto, velocidad,
+configuración, interfaz, clase y endpoints antes de reclamar la interfaz 4.
+Solo expone lectura de IN 85 y liberación; no manda peticiones de servicio,
+no utiliza OUT 04 y no cambia configuración, modo, drivers o firmware.
+
+Para una consulta USB activa siguen faltando capturas de esa consulta en modo
+normal y una correlación de respuestas específica validada. El flujo histórico también contiene modo fábrica,
 transferencia y copia de calibración; no se ha reproducido ninguna de esas acciones.
 
 Para seleccionar o descargar calibración faltan los archivos/manifiesto reales,
 la correspondencia por sensor y un servicio autorizado vigente. La instalación
 requiere además protocolo, recuperación ante fallos y pruebas físicas por unidad.
-No se activan lectura USB, descarga ni escritura con esta entrega.
+Se habilita únicamente la recepción USB pasiva. No se habilitan consultas activas,
+descarga, fábrica ni escritura. Una captura vacía es esperable si no hay tráfico
+espontáneo: no significa que los sensores hayan fallado. No es un monitor del
+tráfico de otra aplicación y se deben cerrar otros clientes USB del PC.
 
 ## Validación de esta entrega
 
@@ -113,5 +131,9 @@ Las pruebas sintéticas cubren conversión sin etiquetas, cuatro selectores,
 campos inválidos, límites de fecha, proveedor, nibble, CRC incorrecto, ecos,
 etiquetas discordantes y tabla de sensores sin identificar el equipo conectado.
 La ejecución del EXE bajo Wine analiza además los 89 registros reales; solo se
-publican los recuentos. Véanse `validacion-1.2.2.json` y los resultados de pruebas.
+publican los recuentos. Véanse `validacion-1.2.3.json` y los resultados de pruebas.
+La recepción pasiva se prueba con dependencias USB simuladas: timeout, desconexión,
+configuración incorrecta, rechazo de otro modelo, cancelación, límite de bytes,
+archivo existente y error de disco/cierre. El EXE bajo Wine recorre esa misma
+captura con un receptor sintético; no se abre un dron.
 Windows nativo y hardware real siguen sin probarse.

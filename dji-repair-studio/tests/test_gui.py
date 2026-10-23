@@ -49,7 +49,7 @@ class GuiTests(unittest.TestCase):
         self.assertNotIn('yandron',' '.join(texts).lower())
         for button in self.app.operation_buttons:
             self.assertLess(button.winfo_rootx(),self.app.tabs.winfo_rootx())
-        self.assertEqual(len(self.app.operation_buttons),19)
+        self.assertEqual(len(self.app.operation_buttons),20)
     def test_offline_tools_remain_inside_main_window(self):
         self.app.dispatch('Analizar')
         self.assertIn('"payload": "01"',self.app.packet_output.get('1.0','end'))
