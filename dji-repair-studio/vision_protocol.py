@@ -2,6 +2,7 @@
 import re
 from pathlib import Path
 from studio_protocol import checksum
+from vision_history import analyze_dji_log, is_dji_log
 
 MAX_CAPTURE = 32 * 1024**2
 MAX_FRAMES = 100000
@@ -90,14 +91,24 @@ def analyze_capture(path, format='auto', cancelled=lambda:False):
     source=Path(path).expanduser().absolute()
     with source.open('rb') as stream:data=stream.read(MAX_CAPTURE+1)
     if len(data)>MAX_CAPTURE:raise ValueError('Captura supera 32 MiB')
-    if format not in ('auto','binary','hexlog'):raise ValueError('Formato de captura no admitido')
+    if format not in ('auto','binary','hexlog','djilog'):raise ValueError('Formato de captura no admitido')
     if format=='auto':
         # Raw captures can be printable; .bin/.raw forces binary rather than guessing.
-        format='binary' if source.suffix.lower() in ('.bin','.raw','.dump') or b'\0' in data else 'hexlog'
+        format='binary' if source.suffix.lower() in ('.bin','.raw','.dump') else 'hexlog' if data.startswith((b'\xff\xfe',b'\xfe\xff')) else 'binary' if b'\0' in data else 'hexlog'
     ignored=0;extracted=bytearray();lines=0
-    if format=='hexlog':
-        if data.startswith((b'\xff\xfe',b'\xfe\xff')):text=data.decode('utf-16')
-        else:text=data.decode('utf-8-sig',errors='replace')
+    encoding=None
+    if format in ('hexlog','djilog'):
+        if data.startswith((b'\xff\xfe',b'\xfe\xff')):text=data.decode('utf-16');encoding='utf-16'
+        else:
+            try:text=data.decode('utf-8-sig');encoding='utf-8-sig'
+            except UnicodeDecodeError:
+                try:text=data.decode('gb18030');encoding='gb18030'
+                except UnicodeDecodeError:text=data.decode('utf-8-sig',errors='replace');encoding='utf-8-replaced'
+        if format=='djilog' or is_dji_log(text):
+            result=analyze_dji_log(text,cancelled)
+            result.update(source=str(source),format='djilog',encoding=encoding,source_bytes=len(data),lines=len(text.splitlines()),
+                initial_150_ack_claim='El contador usa ACK etiquetados de este archivo; no implica respuestas exitosas ni validación del equipo actual.')
+            return result
         for line in text.splitlines():
             if cancelled():raise InterruptedError('Análisis de registro detenido')
             lines+=1;chunk=_hex_runs(line)
@@ -106,7 +117,7 @@ def analyze_capture(path, format='auto', cancelled=lambda:False):
         raw=bytes(extracted)
     else:raw=data
     result=decode_bytes(raw,cancelled)
-    result.update(source=str(source),format=format,source_bytes=len(data),analyzed_bytes=len(raw),
+    result.update(source=str(source),format=format,encoding=encoding,source_bytes=len(data),analyzed_bytes=len(raw),
                   lines=lines,ignored_text_lines=ignored,
                   declared_historical_usb={'state':'desconocido','vid':'2ca3','pid':'0020','interface':'MI_04',
                     'detail':'Dato del texto recibido, sin registros originales contrastados; endpoints desconocidos.'},

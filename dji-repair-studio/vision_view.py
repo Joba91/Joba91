@@ -23,7 +23,7 @@ class VisionView(ttk.Frame):
         ttk.Label(form,text='Máximo (s)').grid(row=0,column=2)
         timeout_entry=ttk.Combobox(form,textvariable=self.timeout,values=('3','5','10'),width=5,state='readonly');timeout_entry.grid(row=0,column=3)
         ttk.Label(form,text='Formato de captura').grid(row=1,column=0,sticky='w',pady=5)
-        format_entry=ttk.Combobox(form,textvariable=self.format,values=('auto','binary','hexlog'),state='readonly',width=14);format_entry.grid(row=1,column=1,sticky='w',padx=8)
+        format_entry=ttk.Combobox(form,textvariable=self.format,values=('auto','binary','hexlog','djilog'),state='readonly',width=14);format_entry.grid(row=1,column=1,sticky='w',padx=8)
         self.controls=[(url_entry,'normal'),(timeout_entry,'readonly'),(format_entry,'readonly')]
         tabs=ttk.Notebook(self);tabs.grid(row=4,column=0,sticky='nsew',pady=5)
         files=ttk.Frame(tabs);files.columnconfigure(0,weight=1);files.rowconfigure(1,weight=1);tabs.add(files,text='Inventario local')

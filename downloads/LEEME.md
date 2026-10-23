@@ -1,35 +1,39 @@
-# DJI REPAIR Studio 1.2.0
+# DJI REPAIR Studio 1.2.1
 
-[Descargar Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.2.0.zip)
+[Descargar Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.2.1.zip)
 
-Extrae todo el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.2.0.exe**.
+Extrae todo el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.2.1.exe**.
 No necesita la instalación anterior ni Python instalado.
 
-Nueva pestaña **Visión Mini 4 Pro**, integrada en la única ventana del programa:
+Esta revisión corrige el análisis de registros DJI Test en la pestaña **Visión Mini 4 Pro**:
 
-- Inventario de carpetas/ZIP y verificación de manifiestos MD5 de texto GNU/BSD.
-- Huellas SHA-256 y estados confirmado, desconocido y error.
-- Análisis sin conexión de capturas binarias y registros HEX.
-- Sondeo TCP/TLS con tiempo limitado, únicamente al solicitarlo.
-- Informe JSON y interfaces independientes para archivos, protocolo, identificación y proveedores.
+- Detecta el formato DJI y su codificación GB18030/UTF-8/UTF-16.
+- Evita contar dos veces CMD y su copia de la capa `cmd Send`.
+- Distingue ecos, asociación histórica y correlación de cabeceras; no infiere éxito.
+- Muestra etiquetas de sensores como datos históricos, sin atribuirlas al dron conectado.
+- Conserva inventario ZIP/carpetas, MD5/SHA-256, capturas binarias y exportación JSON.
 
-**MD5 coincidente no demuestra autenticidad ni compatibilidad.** Para Mini 4 Pro,
-lectura USB, descarga, selección para instalación y escritura siguen deshabilitadas.
-No se ejecuta DJI Test.exe ni se cargan o distribuyen las DLL propietarias del paquete.
+Para analizar, extrae tus registros y usa **Analizar captura visión**, formato `auto`
+o `djilog`. Importar un ZIP inventaría sus archivos; no ejecuta automáticamente los registros.
+Los informes locales pueden contener números de serie históricos aportados por el usuario.
 
-[Uso y bloqueos pendientes](../dji-repair-studio/VISION-MINI4PRO.md) ·
-[Ver interfaz](interfaz-1.2.0.png) · [Código fuente](../dji-repair-studio)
+**La lectura USB, descarga e instalación de calibraciones Mini 4 Pro siguen deshabilitadas.**
+El lector se contrastó con los 89 registros recibidos: 367 CMD y 367 ACK etiquetados,
+734 tramas con CRC válido y 150 ACK distintos. Cuatro entradas ACK son ecos y 188
+asociaciones no cumplen la correlación de cabeceras. No se reproducen esos comandos.
+No hay endpoints confirmados ni decodificación validada de los payloads de sensores.
 
-Pasaron 71 pruebas de aplicación/interfaz y 8 de empaquetado. El EXE arrancó bajo
-Wine con datos sintéticos; el proceso de sondeo se comprobó solo contra localhost.
-No se han recibido el paquete Mini 4 Pro real ni el informe externo; tampoco se
-han probado servidores DJI, Windows nativo o hardware físico. No se declara
-completo el módulo de calibración de visión.
+[Informe de investigación](../dji-repair-studio/INVESTIGACION-REGISTROS-MINI4PRO.md) ·
+[Uso y arquitectura](../dji-repair-studio/VISION-MINI4PRO.md) · [Código](../dji-repair-studio)
 
-Se conserva la corrección del error ordinal 380. Las operaciones anteriores para
-otros modelos mantienen sus restricciones. Antes de calibrar un gimbal compatible,
-lee LEEME.txt dentro del ZIP: esas calibraciones son experimentales y pueden
-provocar errores 40011/40021. No se añade calibración a Mini 4 Pro, Classic o Mavic 4 Pro.
+Validación: 85 pruebas de aplicación, 8 de empaquetado y ejecución del EXE bajo Wine
+con los 89 registros. No probado en Windows nativo, servidores DJI ni hardware físico.
+No se ejecuta DJI Test.exe ni se cargan DLL del paquete. Los registros originales,
+credenciales y números de serie no se redistribuyen. MD5 no demuestra autenticidad
+ni compatibilidad por unidad. Se conserva la corrección de inicio ordinal 380.
 
-El ZIP incluye el ejecutable, fuentes, pruebas, documentación y licencias.
-La integridad de la descarga se comprueba con **SHA256SUMS.txt**.
+Los otros modelos mantienen sus funciones y restricciones previas. Las calibraciones
+de gimbal siguen siendo experimentales; lee LEEME.txt antes de utilizarlas.
+
+El ZIP incluye ejecutable, fuentes, pruebas, documentación y licencias.
+Verifica su integridad con **SHA256SUMS.txt**.

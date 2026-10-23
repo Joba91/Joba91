@@ -1,0 +1,77 @@
+{
+  "version": "1.2.1",
+  "application_tests": {
+    "passed": 85,
+    "failed": 0,
+    "skipped": 0,
+    "includes_virtual_display_ui": true
+  },
+  "packaging_tests": {
+    "passed": 8,
+    "failed": 0
+  },
+  "wine_10_exe_smoke_test": {
+    "interfaz": "DJI REPAIR Studio 1.2.1",
+    "ventanas_principales": 1,
+    "generador": "55 0d 04 33 0a 04 00 00 40 00 01 e6 2a",
+    "analizador_payload": "01",
+    "python": "3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:20:25) [MSC v.1942 64 bit (AMD64)]",
+    "usb_backend_cargado": true,
+    "operaciones_usb_ejecutadas": 0,
+    "vision": {
+      "test_data": "synthetic; not the user calibration package",
+      "inventory_files": 2,
+      "md5_state": "confirmado",
+      "compatibility": "desconocido",
+      "identity": "desconocido",
+      "write_enabled": false,
+      "usb_enabled": false,
+      "framing_valid": true,
+      "historical_reader": {
+        "format": "djilog",
+        "encoding": "gb18030",
+        "valid_frames": 2,
+        "issues": 0
+      }
+    },
+    "provided_log_corpus": {
+      "counts": {
+        "files": 89,
+        "valid_frames": 734,
+        "frame_issues": 0,
+        "historical_sensor_labels": 184,
+        "labeled_cmd": 367,
+        "labeled_ack": 367
+      },
+      "encodings": {
+        "utf-8-sig": 8,
+        "gb18030": 81
+      },
+      "association_counts": {
+        "cabeceras_correlacionadas_resultado_desconocido": 175,
+        "echo_no_confirma_respuesta": 4,
+        "asociacion_del_registro_sin_correlacion_de_cabeceras": 188
+      },
+      "distinct_labeled_ack": 150,
+      "hardware_tested": false,
+      "usb_operations": 0
+    },
+    "loopback_probe_worker": {
+      "state": "error",
+      "detail": "No se pudo verificar la conexión TCP/TLS en el plazo solicitado; no prueba que el servidor esté apagado.",
+      "source": "Sondeo solicitado por el usuario"
+    }
+  },
+  "native_windows_tested": false,
+  "real_dji_hardware_tested": false,
+  "real_mini4_package_available": false,
+  "original_analysis_report_available": true,
+  "provided_historical_logs_available": true,
+  "historical_dji_servers_probed": false,
+  "mini4_usb_enabled": false,
+  "calibration_download_enabled": false,
+  "mini4_write_enabled": false,
+  "common_controls_manifest": "6.0.0.0",
+  "exe_sha256": "f86fb8128a97d5922e0750bbf7841a1c0c74ca97d75e11ba0a309ebdd3d80eb9",
+  "evidence_limits": "Received 89 historical logs and encrypted configs. 150 distinct labeled ACKs verified; not proof of current Mini 4 Pro compatibility. Native DLLs and endpoint descriptors unavailable."
+}

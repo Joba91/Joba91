@@ -1,4 +1,4 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.0
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.1
 
 Estado: diagnóstico sin conexión implementado. El módulo de calibración completo
 sigue pendiente; lectura USB, descarga e instalación no están habilitadas.
@@ -11,8 +11,8 @@ sigue pendiente; lectura USB, descarga e instalación no están habilitadas.
 3. Revisa **Inventario local** y **Resultados y evidencia**. Se calculan MD5 y
    SHA-256. Se distinguen estados confirmado, desconocido y error.
 4. **Analizar captura visión** lee un registro o una captura sin conexión. Formatos:
-   `binary` (bytes crudos), `hexlog` (texto HEX) y `auto`. `.bin/.raw/.dump` se
-   consideran binarios en auto. Los registros admiten UTF-8/UTF-16 y volcados HEX
+   `binary` (bytes crudos), `hexlog` (texto HEX), `djilog` (registros DJI Test) y `auto`. `.bin/.raw/.dump` se
+   consideran binarios en auto. Los registros admiten UTF-8/UTF-16/GB18030 y volcados HEX
    con marcas TX/RX o direcciones de línea. Para otros formatos, falta evidencia.
 5. **Identificación visión** informa por qué la consulta activa no está disponible.
 6. Opcional: escribe un servidor autorizado `https://host:puerto` y pulsa
@@ -50,7 +50,9 @@ la lectura local; no actúa sobre el dron.
 ## Arquitectura
 
 - `vision_packages.py`: inventario, huellas y verificación MD5, sin red ni interfaz.
-- `vision_protocol.py`: tramas y registros; reutiliza el CRC de `studio_protocol.py`.
+- `vision_protocol.py`: tramas, codificaciones y detección de formato.
+- `vision_history.py`: capa CMD/ACK de registros DJI; distingue duplicados, ecos y
+  correlación. Reutiliza el CRC de `studio_protocol.py`.
 - `vision_interfaces.py`: contratos de transporte pasivo, identificación y proveedor
   de calibraciones. Proveedor local y estado explícito de identificación no disponible.
 - `vision_services.py`: proveedor de servicios configurable y sondeo en un proceso
@@ -66,24 +68,17 @@ Los módulos anteriores para otros modelos conservan su comportamiento y restric
 
 ## Evidencia y bloqueos reales
 
-El informe y paquete de las rutas de Windows indicadas no están disponibles en
-este entorno. Es necesario adjuntarlos. Sus afirmaciones se mantienen como pendientes,
-no como resultados verificados. En particular:
+Se recibieron el informe de análisis y un ZIP reducido con 89 registros y dos
+configuraciones cifradas. La revisión confirmó 734 tramas CMD/ACK con CRC válido,
+150 ACK distintos y la presencia histórica de VID/PID/interfaz. Los registros
+mezclan fechas/estaciones/modelos; no prueban compatibilidad con el dron actual.
+No se han recibido las DLL del paquete Mini 4 Pro, los descriptores del equipo
+actual ni los 16 archivos/manifiesto MD5 descritos en el informe.
 
-- No se han contado ni contrastado las supuestas 150 respuestas ACK del Mini 4 Pro.
-- Longitud `LE16 & 0x03FF`, CRC8 `0x8C/0x77` y CRC16 `0x8408/0x3692`, sin XOR final,
-  coinciden con el código previo y con una trama real aportada antes en este chat:
-  `55 0e 04 66 04 0a 8e ad 80 04 08 01 fb 95`. Esa trama es de otro contexto de
-  gimbal; NO demuestra compatibilidad ni comandos de visión del Mini 4 Pro.
-- Las pruebas adicionales usan tramas y paquetes sintéticos, identificados como tales.
-- VID `2CA3`, PID `0020` y `MI_04` proceden del texto recibido. Los endpoints y su
-  correspondencia con firmware siguen sin verificar; no se implementa transporte USB.
-- La arquitectura x86, las firmas C++, dependencias internas y las dos variantes de
-  Device_Manager.dll deben comprobarse contra los binarios reales. No se deducen
-  firmas por nombres ni se cargan DLL. Si se necesitara un componente x86 autorizado,
-  haría falta un auxiliar de 32 bits y completar antes su análisis y condiciones de uso.
-- Las dos IP privadas históricas y GCAC son referencias del texto. No se han consultado, no se configuran como valores predeterminados y no
-  se da por válido ni actual el resultado anterior de disponibilidad.
+[Resultados y próximos archivos necesarios](INVESTIGACION-REGISTROS-MINI4PRO.md).
+Los nombres de funciones del informe no se usan como firmas para invocar DLL.
+La arquitectura y las dependencias se deben verificar contra los binarios reales.
+No se han consultado los servidores históricos ni se han utilizado sus credenciales.
 
 Para habilitar **lectura USB**: capturas con peticiones y respuestas completas,
 descriptores/endpoints reales, firmware, identificadores y efectos de comandos
@@ -95,8 +90,10 @@ ante fallos y pruebas físicas. Ninguna de estas etapas se declara completada.
 
 ## Verificación
 
-Consulta `validacion-1.2.0.json` y `test-results-1.2.0.txt` para los resultados de
+Consulta `validacion-1.2.1.json` y `test-results-1.2.1.txt` para los resultados de
 esta entrega. Las pruebas cubren tramas válidas, CRC dañados, truncadas, concatenadas,
 longitudes incorrectas, recuperación, manifiestos, errores de importación, cancelación,
 límites, bloqueo de USB, sondeo solo solicitado y exportación desde la interfaz.
-No hay validación con paquete Mini 4 Pro real, servidores DJI ni hardware físico.
+El lector se contrastó con los registros recibidos; falta validar el paquete completo,
+servidores DJI y hardware físico. Las etiquetas de serie del registro son históricas,
+no una identificación del equipo conectado.
