@@ -1,0 +1,48 @@
+{
+  "version": "1.2.0",
+  "application_tests": {
+    "passed": 71,
+    "failed": 0,
+    "skipped": 0,
+    "includes_virtual_display_ui": true
+  },
+  "packaging_tests": {
+    "passed": 8,
+    "failed": 0
+  },
+  "wine_10_exe_smoke_test": {
+    "interfaz": "DJI REPAIR Studio 1.2.0",
+    "ventanas_principales": 1,
+    "generador": "55 0d 04 33 0a 04 00 00 40 00 01 e6 2a",
+    "analizador_payload": "01",
+    "python": "3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:20:25) [MSC v.1942 64 bit (AMD64)]",
+    "usb_backend_cargado": true,
+    "operaciones_usb_ejecutadas": 0,
+    "vision": {
+      "test_data": "synthetic; not the user calibration package",
+      "inventory_files": 2,
+      "md5_state": "confirmado",
+      "compatibility": "desconocido",
+      "identity": "desconocido",
+      "write_enabled": false,
+      "usb_enabled": false,
+      "framing_valid": true
+    },
+    "loopback_probe_worker": {
+      "state": "error",
+      "detail": "No se pudo verificar la conexión TCP/TLS en el plazo solicitado; no prueba que el servidor esté apagado.",
+      "source": "Sondeo solicitado por el usuario"
+    }
+  },
+  "native_windows_tested": false,
+  "real_dji_hardware_tested": false,
+  "real_mini4_package_available": false,
+  "original_analysis_report_available": false,
+  "historical_dji_servers_probed": false,
+  "mini4_usb_enabled": false,
+  "calibration_download_enabled": false,
+  "mini4_write_enabled": false,
+  "common_controls_manifest": "6.0.0.0",
+  "exe_sha256": "b450fc69bb4d89b73b3d74d56a2932f41a1638723cc915fbe87df873d3371498",
+  "evidence_limits": "One earlier user-provided gimbal frame validates CRC only; original Mini 4 Pro logs and claimed 150 ACKs unavailable."
+}
