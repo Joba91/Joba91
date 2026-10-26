@@ -54,6 +54,17 @@ def main():
             passive=capture_passive(root/'passive.bin','01.00.1100',transport_factory=lambda:receiver,
                 clock=clock,progress=passive_progress.append)
             passive_frames=analyze_capture(root/'passive.bin','binary')
+            from vision_usb_legacy import select_mi04,ALIAS_PREFIX
+            from vision_support_bundle import write_support_bundle
+            from types import SimpleNamespace
+            from zipfile import ZipFile
+            aliases=[SimpleNamespace(_ctx=SimpleNamespace(dev=SimpleNamespace(
+                filename=(ALIAS_PREFIX+f'{index:04d}--0x2ca3-0x0020').encode()))) for index in range(1,7)]
+            mapping={1:2,2:3,3:5,4:6,5:7,6:4}
+            selected,selection=select_mi04(aliases,probe=lambda path:[f'USB\\VID_2CA3&PID_0020&MI_{mapping[int(path[-4:])]:02X}'])
+            synthetic_bundle=write_support_bundle(root/'passive.bin',{'test_data':'synthetic','usb_capture':passive})
+            with ZipFile(synthetic_bundle) as z:
+                bundle_ok=z.testzip() is None and z.read('passive.bin')==synthetic_frame and json.loads(z.read('DJI-REPAIR-informe.json'))['test_data']=='synthetic'
             vision_report={'test_data':'synthetic; not the user calibration package',
                 'inventory_files':inventory['file_count'],'md5_state':inventory['integrity']['state'],
                 'compatibility':LocalCalibrationProvider().compatibility(inventory,None).state,
@@ -66,7 +77,10 @@ def main():
                     'valid_frames':passive_frames['valid_frames'],
                     'decoded_sensor_records':passive_frames['perception_records']['counts'].get('decoded',0),
                     'receiver_closed':receiver.closed,'protocol_commands_sent':passive['protocol_commands_sent'],
-                    'last_percent':passive_progress[-1]['percent'],'real_usb_opened':False}}
+                    'last_percent':passive_progress[-1]['percent'],'real_usb_opened':False},
+                'legacy_alias_selection_synthetic_test':{'aliases':6,'selected_index':selection['selected_alias_index'],
+                    'selected_mi':selection['selected_mi'],'correct_object':selected is aliases[-1],
+                    'real_metadata_ioctls_executed':0},'support_bundle_synthetic_test':bundle_ok}
         report = {
             'interfaz': app.title(),
             'ventanas_principales': 1 + sum(isinstance(w, tk.Toplevel) for w in app.winfo_children()),
@@ -108,6 +122,9 @@ def main():
             report['usb_backend_cargado'] = usb.backend.libusb1.get_backend(find_library=lambda name: str(native)) is not None
             legacy=Path(getattr(sys,'_MEIPASS',Path(__file__).parent/'native'))/'libusb0.dll'
             report['libusb0_backend_cargado']=usb.backend.libusb0.get_backend(find_library=lambda name:str(legacy)) is not None
+            from vision_usb_legacy import windows_kernel32
+            kernel=windows_kernel32()
+            report['windows_metadata_api_loaded']=all(getattr(kernel,name,None) is not None for name in ('CreateFileW','DeviceIoControl','CloseHandle'))
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

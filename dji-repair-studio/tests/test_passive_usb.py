@@ -38,6 +38,7 @@ class PassiveTransportTests(unittest.TestCase):
         self.stack.enter_context(patch('vision_usb_passive.sys',SimpleNamespace(platform='linux')))
         self.backend=self.stack.enter_context(patch('usb.backend.libusb1.get_backend',return_value=object()))
         self.legacy_backend=self.stack.enter_context(patch('usb.backend.libusb0.get_backend',return_value=object()))
+        self.selector=self.stack.enter_context(patch('vision_usb_passive.select_mi04',side_effect=lambda items:(items[0],{'selected_mi':4})))
         self.find=self.stack.enter_context(patch('usb.core.find',return_value=[self.device]))
         self.product=self.stack.enter_context(patch('usb.util.get_string',return_value='Mini 4 Pro-SYNTHETIC'))
         self.claim=self.stack.enter_context(patch('usb.util.claim_interface'))
@@ -137,6 +138,23 @@ class PassiveTransportTests(unittest.TestCase):
         with patch('vision_usb_passive.sys',SimpleNamespace(platform='win32')),self.assertRaises(UsbOpeningError):
             PassiveVisionUsbTransport()
         self.backend.assert_not_called();self.assert_no_device_changes()
+    def test_six_aliases_open_only_the_metadata_identified_mi04(self):
+        from vision_usb_legacy import select_mi04,ALIAS_PREFIX
+        devices=[]
+        for index,mi in enumerate((2,3,5,6,7,4),1):
+            device=Device();device._ctx=SimpleNamespace(dev=SimpleNamespace(filename=(ALIAS_PREFIX+f'{index:04d}--0x2ca3-0x0020').encode()))
+            devices.append(device)
+        self.find.return_value=devices
+        mapping={index:mi for index,mi in enumerate((2,3,5,6,7,4),1)}
+        def choose(items):return select_mi04(items,probe=lambda alias:[f'USB\\VID_2CA3&PID_0020&MI_{mapping[int(alias[-4:])]:02X}'])
+        self.selector.side_effect=choose
+        with patch('vision_usb_passive.sys',SimpleNamespace(platform='win32')):
+            transport=PassiveVisionUsbTransport()
+        self.assertIs(transport.device,devices[-1])
+        self.assertEqual(transport.evidence['legacy_interface_selection']['enumerated_aliases'],6)
+        for other in devices[:-1]:other.get_active_configuration.assert_not_called()
+        self.claim.assert_called_once_with(devices[-1],4)
+        self.backend.assert_not_called();transport.close()
 
 class Clock:
     def __init__(self):self.now=0

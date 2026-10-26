@@ -1,4 +1,4 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.4
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.5
 
 Estado: diagnóstico de archivos y recepción USB pasiva implementados. La consulta
 activa de sensores, descarga e instalación de calibraciones siguen pendientes.
@@ -24,7 +24,12 @@ activa de sensores, descarga e instalación de calibraciones siguen pendientes.
    configuración 1, alternativa 0 y endpoints bulk IN `85` / OUT `04`
    de 512 bytes. Escribe el firmware de DJI Fly en el campo correspondiente.
    Cierra otros clientes USB del PC y conserva el modo normal. Elige un archivo
-   **nuevo** `.bin`; se conservan los archivos existentes.
+   **nuevo** `.bin`; se conservan los archivos existentes. Al terminar se crea
+   automáticamente un **ZIP** en la misma carpeta, con el `.bin` y
+   `DJI-REPAIR-informe.json`, también si falla la apertura o no llegan bytes.
+   Para compartir resultados, adjunta ese ZIP generado por el programa. No se
+   sube automáticamente. Si existe un ZIP del mismo nombre, se conserva y se
+   informa el error; sigue disponible Guardar informe para exportar el JSON.
    La ventana de recepción es de 5/10 segundos tras abrir el dispositivo y tiene
    límite de 1 MiB. El porcentaje mide ese tiempo, sin medir diagnóstico o calibración.
    El análisis y la apertura tienen su propio tiempo. Detener conserva los bytes
@@ -98,6 +103,35 @@ sin programas de instalación, filtros o controladores binarios. El acceso físi
 al servicio del usuario sigue pendiente; la carga de ambas bibliotecas sí se
 comprobó bajo Wine.
 
+## Selección de MI04 entre varias entradas libusb0
+
+El informe recibido de 1.2.4 enumera seis entradas 2CA3:0020 y se detiene antes de
+leer. Ese recuento no demuestra seis aeronaves: la biblioteca puede enumerar
+interfaces de un mismo dispositivo compuesto. La revisión 1.2.5 identifica
+**cada alias** por los HardwareID del controlador local de Windows y exige una
+coincidencia única para `USB\VID_2CA3&PID_0020&MI_04`, con o sin revisión.
+
+El nombre del alias se obtiene del descriptor interno de PyUSB 1.3.1 y se valida
+antes de abrirlo. Solo se admiten rutas libusb0 de índice 1 a 255 y el VID/PID
+esperado; no se generan rutas a partir del orden de la lista. La consulta usa
+`GET_DEVICE_PROPERTY` (`0x222400`), propiedad HardwareID, con petición ABI de 24
+bytes. El código público del controlador resuelve esa propiedad con
+`IoGetDeviceProperty`: son metadatos del PDO de Windows, no comandos USB DJI.
+Se cierra cada handle de consulta y se mantiene el límite de 32 alias.
+
+No se elige el primer resultado ni se prueban lecturas de otras interfaces. Si
+hay dos MI04, ninguna, propiedades incompletas, errores o identificadores
+contradictorios, se detiene la selección y se guarda el detalle. Solo la entrada
+MI04 seleccionada continúa con las comprobaciones de producto/configuración,
+endpoints y reclamación de interfaz. `legacy_interface_selection` registra el
+método, números MI observados e índice elegido; no registra números de serie.
+
+Las pruebas verifican seis entradas con MI04 al final, duplicados, dos MI04,
+ausencia de MI04, ABI y buffers de la consulta, cierre de handles y fallo de
+metadatos. También verifican el ZIP automático en una captura vacía o fallida.
+Bajo Wine se comprobó la carga de las APIs Windows y la selección con metadatos
+simulados. La consulta al controlador físico del usuario todavía no se ha probado.
+
 ## Arquitectura
 
 - `vision_packages.py`: inventario, huellas y verificación MD5, sin red ni interfaz.
@@ -106,6 +140,8 @@ comprobó bajo Wine.
   correlación. Reutiliza el CRC de `studio_protocol.py`.
 - `vision_sensor_records.py`: conversión binaria de registros de sensores 24/26,
   independiente de las DLL y sin consultas USB.
+- `vision_usb_legacy.py`: consulta local de HardwareID y selección única de MI04.
+- `vision_support_bundle.py`: ZIP local de captura e informe, sin subirlo ni sobrescribir archivos.
 - `vision_usb_passive.py`: receptor restringido a IN; no expone escritura, fábrica,
   reset, cambios de configuración o de driver. Guarda una captura nueva y sus métricas.
 - `vision_interfaces.py`: contratos de transporte pasivo, identificación y proveedor
@@ -151,7 +187,7 @@ ante fallos y pruebas físicas. Ninguna de estas etapas se declara completada.
 
 ## Verificación
 
-Consulta `validacion-1.2.4.json` y `test-results-1.2.4.txt` para los resultados de
+Consulta `validacion-1.2.5.json` y `test-results-1.2.5.txt` para los resultados de
 esta entrega. Las pruebas cubren tramas válidas, CRC dañados, truncadas, concatenadas,
 longitudes incorrectas, recuperación, manifiestos, errores de importación, cancelación,
 límites, bloqueo de USB, sondeo solo solicitado y exportación desde la interfaz.

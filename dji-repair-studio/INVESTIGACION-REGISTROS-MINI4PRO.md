@@ -1,4 +1,4 @@
-# Investigación de DLL y registros · DJI REPAIR Studio 1.2.4
+# Investigación de DLL y registros · DJI REPAIR Studio 1.2.5
 
 Se analizaron estáticamente los dos binarios recibidos y se contrastaron sus
 estructuras con los 89 registros anteriores. No se cargaron ni ejecutaron las DLL.
@@ -132,7 +132,7 @@ Las pruebas sintéticas cubren conversión sin etiquetas, cuatro selectores,
 campos inválidos, límites de fecha, proveedor, nibble, CRC incorrecto, ecos,
 etiquetas discordantes y tabla de sensores sin identificar el equipo conectado.
 La ejecución del EXE bajo Wine analiza además los 89 registros reales; solo se
-publican los recuentos. Véanse `validacion-1.2.4.json` y los resultados de pruebas.
+publican los recuentos. Véanse `validacion-1.2.5.json` y los resultados de pruebas.
 La recepción pasiva se prueba con dependencias USB simuladas: timeout, desconexión,
 configuración incorrecta, rechazo de otro modelo, cancelación, límite de bytes,
 archivo existente y error de disco/cierre. El EXE bajo Wine recorre esa misma
@@ -162,3 +162,25 @@ verificándose. Las pruebas cubren elección de API, ausencia de velocidad,
 fallback limitado, denegación de acceso, perfil equivocado y errores antes de leer.
 Ambas bibliotecas cargaron bajo Wine. La recepción física con ese controlador
 no se declara probada y las consultas activas de sensores siguen pendientes.
+
+## Seis entradas libusb0 y revisión 1.2.5
+
+El nuevo informe de la versión 1.2.4 confirma carga/enumeración por libusb0: seis
+entradas 2CA3:0020, cero intentos de lectura y detención en enumerate_devices.
+El informe no identifica esas seis entradas como seis aeronaves. El error estaba
+en exigir una sola entrada antes de distinguir interfaces del dispositivo compuesto.
+
+La revisión 1.2.5 añade identificación por metadatos locales del controlador.
+Se contrastó GET_DEVICE_PROPERTY (0x222400), HardwareID (propiedad 1), petición
+packed de 24 bytes y retorno MULTI_SZ con el código público driver_api.h,
+ioctl.c y driver_registry.c. El handler lee IoGetDeviceProperty del PDO, sin
+peticiones al firmware. Se valida el alias, se consultan hasta 32 y solo continúa
+una MI04 inequívoca. La configuración, producto y endpoints se comprueban después.
+No se elimina el rechazo de ambigüedades ni se selecciona la primera entrada.
+
+El ZIP automático contiene captura e informe incluso con cero bytes, para evitar
+que un .bin vacío sea la única evidencia compartida. Guarda datos locales de esa
+prueba, no se sube y no sobrescribe archivos. Se conservan las restricciones de
+recepción pasiva y consultas activas/calibración pendientes. Las pruebas usan seis
+alias simulados y una API Windows simulada; falta confirmar la consulta de
+metadatos y la recepción con el controlador físico del usuario.

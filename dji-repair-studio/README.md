@@ -1,4 +1,4 @@
-# DJI REPAIR Studio 1.2.4
+# DJI REPAIR Studio 1.2.5
 
 Aplicación de una sola ventana con diagnóstico de archivos y recepción USB
 pasiva Mini 4 Pro. La captura recibe desde IN 85 de la interfaz 4 sin emitir
@@ -29,3 +29,9 @@ de distribución incluye además licencias de las bibliotecas de ejecución.
 El lector histórico se contrastó con 89 registros reales recibidos: 734 tramas,
 150 ACK distintos. El decodificador propio de sensores recupera 184 SN desde
 payloads, con 184 coincidencias históricas; cuatro bloques inválidos siguen desconocidos. [Investigación y límites](INVESTIGACION-REGISTROS-MINI4PRO.md).
+
+En libusb0, la selección identifica una MI04 única por los HardwareID del
+controlador local de Windows; no interpreta varias entradas como varias
+aeronaves ni elige la primera. Capturar USB pasivo crea automáticamente un ZIP
+con el .bin y el JSON, incluso si la apertura falla. Pruebas con seis alias
+simulados; consulta física de metadatos y recepción real pendientes.

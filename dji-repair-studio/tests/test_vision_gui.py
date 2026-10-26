@@ -99,6 +99,29 @@ class VisionGuiTests(unittest.TestCase):
         self.assertIn('Recepción USB actual',self.app.vision.sensor_provenance.get())
         self.assertEqual(len(self.app.vision.sensor_records.get_children()),1)
         self.assertEqual(self.app.progress_value.get(),100)
+        from zipfile import ZipFile
+        bundle=dest.with_suffix('.zip');self.assertTrue(bundle.is_file())
+        with ZipFile(bundle) as z:
+            self.assertEqual(z.read(dest.name),frame)
+            saved=json.loads(z.read('DJI-REPAIR-informe.json'))
+            self.assertEqual(saved['vision']['capture']['usb_capture']['protocol_commands_sent'],0)
+            self.assertEqual(saved['version'],'1.2.5')
+    def test_failed_open_still_creates_zip_with_the_complete_error_report(self):
+        from vision_usb_passive import capture_passive,UsbOpeningError
+        from zipfile import ZipFile
+        dest=self.root/'failed-usb.bin';self.app.vision.firmware.set('01.00.1100')
+        diagnostics=[{'backend':'libusb0','stage':'identify_libusb0_interfaces','message':'No unique MI04',
+                      'exception_type':'LegacyInterfaceError'}]
+        def failed_capture(*args,**kwargs):
+            return capture_passive(*args,**kwargs,transport_factory=lambda:(_ for _ in ()).throw(UsbOpeningError(diagnostics)))
+        with patch('studio_app.capture_passive',side_effect=failed_capture),patch('studio_app.filedialog.asksaveasfilename',return_value=str(dest)):
+            self.app.dispatch('Capturar USB pasivo');self.wait_idle()
+        self.assertEqual(self.app.report['resultado']['estado'],'error')
+        with ZipFile(dest.with_suffix('.zip')) as z:
+            self.assertEqual(z.read(dest.name),b'')
+            saved=json.loads(z.read('DJI-REPAIR-informe.json'))
+            self.assertEqual(saved['vision']['capture']['usb_capture']['opening_diagnostics'],diagnostics)
+            self.assertEqual(saved['resultado']['estado'],'error')
     def test_vision_tab_reveals_its_sidebar_actions(self):
         self.app.select_page('Visión Mini 4 Pro')
         self.app.after(100,self.app.quit);self.app.mainloop()

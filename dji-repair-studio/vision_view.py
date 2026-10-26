@@ -55,7 +55,7 @@ class VisionView(ttk.Frame):
         detail=ttk.Frame(tabs);detail.columnconfigure(0,weight=1);detail.rowconfigure(0,weight=1);tabs.add(detail,text='Resultados y evidencia')
         self.details=tk.Text(detail,wrap='word',font=('Consolas',9),state='disabled');self.details.grid(row=0,column=0,sticky='nsew')
         scroll=ttk.Scrollbar(detail,command=self.details.yview);scroll.grid(row=0,column=1,sticky='ns');self.details.configure(yscrollcommand=scroll.set)
-        ttk.Label(self,text='Acciones en el lateral. El servidor solo se consulta al solicitarlo. MD5 no acredita autenticidad ni compatibilidad. Guardar informe conserva todos los resultados.',wraplength=850).grid(row=5,column=0,sticky='w',pady=5)
+        ttk.Label(self,text='Capturar USB pasivo crea un ZIP con captura e informe para compartir. Guardar informe exporta JSON. El servidor solo se consulta al solicitarlo; MD5 no acredita compatibilidad.',wraplength=850).grid(row=5,column=0,sticky='w',pady=5)
         self.refresh_states()
 
     def apply_report(self,category,data):

@@ -1,50 +1,48 @@
-# DJI REPAIR Studio 1.2.4
+# DJI REPAIR Studio 1.2.5
 
-[Descargar Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.2.4.zip)
+[Descargar Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.2.5.zip)
 
-Extrae el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.2.4.exe**.
-No necesita la instalación anterior ni Python. Conserva una sola ventana.
+Extrae el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.2.5.exe**.
 
-## Corrección para el controlador libusb0_device existente
+## Corrección de selección MI04
 
-La versión anterior intentaba libusb 1.0 y el informe recibido mostraba
-`Operation not supported or unimplemented on this platform` antes de leer.
-El usuario confirmó que MI04 usa `libusb0_device`, estado OK y código 0.
-Esta entrega incluye la biblioteca de usuario oficial **libusb-win32 1.4.0.2 x64**
-y prioriza libusb0 en Windows. **No instala ni cambia el controlador del PC.**
+El informe de 1.2.4 muestra que libusb0 enumera seis entradas 2CA3:0020 y se
+detiene antes de leer. Ese número no acredita seis aeronaves: puede representar
+interfaces de un dispositivo compuesto. La revisión identifica cada alias por
+sus HardwareID locales de Windows y exige **una única MI04**. No elige el primer
+resultado ni abre otras interfaces para probarlas. Mantiene las comprobaciones
+de producto, configuración y endpoints y no instala ni sustituye controladores.
 
-Si la apertura vuelve a fallar, el JSON registra la API, fase y excepción exactas.
-libusb0 no informa la velocidad: se declara desconocida. Se siguen verificando
-producto Mini 4 Pro, configuración 1, interfaz 4 / alternativa 0, clase y endpoints
-bulk IN `85` / OUT `04` de 512 bytes. No se inventa una velocidad confirmada.
+También genera automáticamente un ZIP con la captura y el informe JSON, incluso
+cuando falla la apertura o el .bin queda vacío. No se sube ningún archivo de forma
+automática. Los archivos existentes se conservan.
 
-## Prueba con el dron
+## Prueba
 
-1. Cierra otros programas del PC que usen su USB y conecta el dron en modo normal.
-2. Abre **Visión Mini 4 Pro** y escribe **01.00.1100** en **Firmware declarado (DJI Fly)**
-   si esa es la versión de tu aeronave.
-3. Pulsa **Capturar USB pasivo**, elige un archivo **nuevo** `.bin` y espera a que termine.
-4. Usa **Guardar informe** para exportar el **JSON** de esa prueba.
+1. Conecta el Mini 4 Pro en modo normal y cierra otros clientes USB del PC.
+2. Abre **Visión Mini 4 Pro** y escribe **01.00.1100** en Firmware declarado,
+   si esa es la versión de tu aeronave en DJI Fly.
+3. Pulsa **Capturar USB pasivo**, elige un archivo **nuevo** `.bin` y espera.
+4. Comparte el **ZIP Mini4Pro-USB-....zip** que se crea junto al `.bin`.
+   Incluye `DJI-REPAIR-informe.json`; no hace falta comprimir el .bin manualmente.
 
-La captura solo recibe desde IN 85, durante 5/10 segundos tras abrir o hasta 1 MiB.
-El porcentaje mide tiempo de recepción. Detener conserva bytes parciales y no se
-sobrescriben archivos. Una captura vacía no demuestra avería ni garantiza que se
-abrió USB; el JSON permite distinguir falta de tráfico y error de apertura.
-**La consulta activa de sensores y la calibración Mini 4 Pro siguen pendientes.**
-No se envían peticiones de servicio, fábrica o calibración ni se alteran drivers,
-configuración USB o firmware. No es un monitor del tráfico de otra aplicación.
+Guardar informe sigue disponible como exportación JSON manual. Si no se puede
+crear el ZIP, el resultado indica el error y permite guardar ese JSON.
 
-Se conserva el analizador de archivos, las conversiones de SN del formato
-contrastado y los informes anteriores. Las identidades de registros históricos
-no se asignan al dron actual. Los otros modelos conservan sus restricciones.
+La captura solo recibe de IN 85 en la interfaz 4, durante 5/10 segundos tras abrir
+o hasta 1 MiB. El porcentaje mide tiempo de recepción. No consulta activamente
+sensores ni inicia fábrica, calibración, reset, escritura o cambios de firmware.
+Una captura vacía no demuestra avería: el informe distingue la falta de tráfico
+del fallo al abrir. Las consultas activas y calibraciones Mini 4 Pro siguen pendientes.
 
 [Investigación](../dji-repair-studio/INVESTIGACION-REGISTROS-MINI4PRO.md) ·
 [Uso y arquitectura](../dji-repair-studio/VISION-MINI4PRO.md) · [Código](../dji-repair-studio)
 
-Validación: **126 pruebas de aplicación y 9 de empaquetado**, arranque del EXE y
-carga de ambas bibliotecas USB bajo Wine. La captura usa receptores sintéticos
-en esas pruebas; la recepción con hardware real y Windows nativo sigue pendiente.
-El ZIP contiene fuentes, licencias y fuente correspondiente de libusb-win32.
-No incluye controladores binarios, instaladores ni DLL propietarias DJI.
-Los registros, identificadores de unidad y credenciales del usuario no se publican.
-Verifica la huella del ZIP en **SHA256SUMS.txt**.
+Validación: **149 pruebas de aplicación y 9 de empaquetado** aprobadas. El EXE
+arranca bajo Wine, carga ambas bibliotecas USB y las APIs Windows, selecciona
+MI04 entre seis entradas simuladas y crea un ZIP con captura e informe sintéticos.
+La consulta física al controlador y la recepción real siguen pendientes; no se
+declara prueba en Windows nativo o con un dron. El ZIP contiene fuentes, licencias
+y fuente correspondiente de libusb-win32, sin instaladores ni drivers binarios.
+Los adjuntos originales e identificadores de unidad no se publican.
+Consulta **SHA256SUMS.txt** para la huella del paquete.

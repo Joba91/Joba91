@@ -17,8 +17,10 @@ from vision_protocol import analyze_capture
 from vision_interfaces import UnavailableIdentification, LocalCalibrationProvider
 from vision_services import AuthorizedServiceProvider, service_target
 from vision_usb_passive import capture_passive, DECLARED_FIRMWARE
+from vision_support_bundle import write_support_bundle
+from pathlib import Path
 
-VERSION = '1.2.4'
+VERSION = '1.2.5'
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
           'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Mini 5 Pro')
 PROFILE_CODES = {'Mavic 3':'WM260','Mavic 3 Cine':'WM260','Mavic 4 Pro':'MAVIC4PRO','Mini 5 Pro':'MT5MFND'}
@@ -317,7 +319,7 @@ class StudioApp(tk.Tk):
                 if snapshot['firmware']!=DECLARED_FIRMWARE:
                     raise ValueError('Escribe 01.00.1100 en Firmware declarado si es la versión que muestra DJI Fly para tu Mini 4 Pro.')
                 snapshot['seconds']=int(self.vision.capture_seconds.get())
-                snapshot['path']=filedialog.asksaveasfilename(parent=self,title='Guardar una captura USB nueva (.bin)',
+                snapshot['path']=filedialog.asksaveasfilename(parent=self,title='Guardar captura nueva (.bin); también se creará un ZIP con el informe',
                     defaultextension='.bin',initialfile=time.strftime('Mini4Pro-USB-%Y%m%d-%H%M%S.bin'),
                     filetypes=[('Captura binaria','*.bin')])
             if 'path' in snapshot and not snapshot['path']:return
@@ -357,6 +359,22 @@ class StudioApp(tk.Tk):
                 data.pop('declared_historical_usb',None)
                 data.pop('initial_150_ack_claim',None)
                 category='capture';state=data['state'];detail=data['detail']
+                base_detail=detail
+                bundle_path=str(Path(receipt['capture_path']).with_suffix('.zip'))
+                data['support_bundle']={'state':'confirmado','path':bundle_path,
+                    'report_member':'DJI-REPAIR-informe.json','uploaded_automatically':False}
+                detail=base_detail+' Archivo para compartir: '+bundle_path
+                data['detail']=detail
+                try:
+                    bundle_report={'herramienta':'DJI REPAIR Studio','version':VERSION,'accion':action,
+                        'modelo_declarado':'Mini 4 Pro','firmware_declarado':snapshot['firmware'],
+                        'fecha_unix':time.time(),'resultado':{'estado':state,'detalle':detail},
+                        'vision':{'capture':data}}
+                    write_support_bundle(receipt['capture_path'],bundle_report)
+                except Exception as exc:
+                    data['support_bundle']={'state':'error','path':bundle_path,'detail':str(exc),'uploaded_automatically':False}
+                    detail=base_detail+' No se pudo crear el ZIP: '+str(exc)+'. Usa Guardar informe para conservar el JSON.'
+                    data['detail']=detail
             else:
                 data=UnavailableIdentification().identify().to_dict();category='identity';state=data['state'];detail=data['detail']
             self.events.put(('vision',{'category':category,'data':data}))

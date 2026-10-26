@@ -7,6 +7,7 @@ changes, kernel-driver detachment, clear_halt or driver installation are exposed
 import sys
 import time
 from pathlib import Path
+from vision_usb_legacy import select_mi04
 
 MAX_BYTES=1024**2
 DECLARED_FIRMWARE='01.00.1100'
@@ -42,15 +43,22 @@ class PassiveVisionUsbTransport:
                 self._stage='enumerate_devices'
                 devices=list(usb.core.find(find_all=True,idVendor=0x2ca3,idProduct=0x0020,backend=backend) or [])
                 self._candidate_count=len(devices)
+                selection=None
+                if api=='libusb0' and devices:
+                    self._stage='identify_libusb0_interfaces'
+                    selected,selection=select_mi04(devices)
+                    devices=[selected]
                 if len(devices)!=1:raise RuntimeError(f'Se encontraron {len(devices)} dispositivos 2CA3:0020 con esta API. Conecta un solo Mini 4 Pro.')
                 self.device=devices[0]
                 self._open_profile(api)
                 self.evidence.update(backend=api,backend_attempts=diagnostics)
+                if selection is not None:self.evidence['legacy_interface_selection']=selection
                 return
             except Exception as exc:
                 diagnostic={'backend':api,'stage':self._stage,'candidate_devices':self._candidate_count,
                     'exception_type':type(exc).__name__,'message':str(exc),
                     'errno':getattr(exc,'errno',None),'backend_error_code':getattr(exc,'backend_error_code',None)}
+                if hasattr(exc,'observations'):diagnostic['interface_observations']=exc.observations
                 try:self.close()
                 except Exception as cleanup:diagnostic['cleanup_error']=str(cleanup)
                 diagnostics.append(diagnostic)
