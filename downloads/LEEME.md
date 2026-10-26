@@ -43,3 +43,7 @@ sin una nueva consulta física o prueba de Windows nativo. Los originales perman
 [Uso y arquitectura](../dji-repair-studio/VISION-MINI4PRO.md) ·
 [Investigación](../dji-repair-studio/INVESTIGACION-REGISTROS-MINI4PRO.md) ·
 [Código](../dji-repair-studio). Fuentes y licencias incluidas. Consulta **SHA256SUMS.txt**.
+
+## Investigación de calibración de visión
+
+[Recopilador del motor de visión 1.0.0](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Investigacion_Vision_1.0.0.zip) — busca componentes locales para análisis. **No calibra el dron y no sustituye DJI REPAIR Studio.** Extrae el ZIP y abre `Recopilar-motor-vision.cmd`.

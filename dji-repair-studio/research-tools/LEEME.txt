@@ -1,0 +1,35 @@
+DJI REPAIR - Recopilador del motor de vision (investigacion)
+
+Este paquete NO es una nueva version del calibrador y NO calibra el dron.
+Busca componentes de imagen que no estan en los archivos recibidos hasta ahora.
+
+1. Extrae este ZIP en una carpeta nueva de tu PC con Windows.
+2. Abre Recopilar-motor-vision.cmd haciendo doble clic.
+3. Espera a que aparezca "Resultado". Se crea una carpeta DJI-Vision-Motor-...
+   en el Escritorio con el ZIP para compartir.
+4. Si el ZIP supera 30 MiB se generan partes .part001, .part002, etc.
+   En ese caso comparte todas las partes, no el ZIP grande.
+5. Comparte el archivo en esta conversacion para continuar el analisis.
+
+No hace falta conectar el dron, abrir DJI Assistant ni iniciar sesion en DJI.
+No pide permisos de administrador. Lee cuatro nombres concretos de DLL en
+C:\DJI y en carpetas de DJI de Archivos de programa y AppData\Local\DJI.
+No cambia controladores, no se comunica por USB ni contacta con servidores.
+No ejecuta las bibliotecas que encuentra. Conserva distintas versiones por hash.
+El CMD permite ejecutar este script solo en su proceso de PowerShell; no cambia
+la configuracion permanente de Windows.
+
+El ZIP generado puede contener rutas locales y componentes propietarios de tu
+instalacion. Compartelo aqui para analisis; no lo publiques en GitHub.
+
+Si no encuentra componentes, el inventario lo indicara. Esto no demuestra que
+la calibracion sea imposible; indica que el motor no se encontro en las carpetas
+examinadas. Puedes indicar otra carpeta desde PowerShell:
+
+  .\Recopilar-motor-vision.ps1 -SearchRoot 'D:\Carpeta de DJI'
+
+Archivos buscados:
+  DJIVisionCalibration.dll
+  DJIVisionCalibration2.dll
+  DJIVisionCalibration3.dll
+  DJI_guidance.dll

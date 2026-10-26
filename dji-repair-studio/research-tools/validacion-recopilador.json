@@ -1,0 +1,27 @@
+{
+  "collector_version": "1.0.0",
+  "powershell_version": "7.4.6",
+  "test_platform": "Linux",
+  "native_windows_tested": false,
+  "checks_passed": [
+    "PowerShell parsing and execution",
+    "Paths with spaces and brackets",
+    "Exact filename allowlist",
+    "No arbitrary EXE/config inclusion",
+    "Invalid PE excluded",
+    "Oversize file excluded",
+    "Symlink directory excluded",
+    "Content duplicates excluded",
+    "Archive contents exactly match inventory",
+    "SHA256 verified from ZIP",
+    "USB/network/library execution remain zero",
+    "No-engine result recorded without claiming calibration",
+    "Archives over 30 MiB split into bounded parts",
+    "Parts reconstruct exact ZIP",
+    "Sharing manifest identifies parts and checksum"
+  ],
+  "count": 15,
+  "dji_binaries_executed": false,
+  "hardware_tested": false,
+  "calibration_implemented": false
+}
