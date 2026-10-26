@@ -1,7 +1,58 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.3.0
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.4.0
 
 Hay recepción USB pasiva, análisis de archivos y una nueva **consulta SN experimental**.
-El diagnóstico de salud, calibración óptica, descarga e instalación siguen pendientes.
+Se añade solicitud y lectura HMS experimental; la compatibilidad de esos datos con
+Mini 4 Pro y la interpretación de sus alarmas siguen pendientes. Calibración óptica,
+descarga e instalación no están implementadas.
+
+## Probar diagnóstico HMS
+
+1. Conecta el Mini 4 Pro en modo normal y cierra otros clientes USB del PC.
+2. En Visión Mini 4 Pro declara el firmware **01.00.1100** de DJI Fly.
+3. Pulsa **Diagnóstico visión (HMS)** y guarda un `.bin` **nuevo**.
+4. Tras la apertura y ocho segundos de escucha, comparte el ZIP `Mini4Pro-HMS-....zip`.
+
+Esta acción solicita publicación de estados con una petición **0a→1d, 21/05,
+payload 01**. Solo se permite una por sesión, con timeout de envío 500 ms y sin
+reintentos. Se deriva del constructor y lector HMS de la DLL aportada, no de un
+barrido de comandos. No inicia fábrica, autotest, motores o calibración. No cambia
+firmware, drivers o configuración USB. Sí solicita una publicación de telemetría.
+
+El SDK público describe una desuscripción con payload 00 que reinicia otros
+suscriptores. **No se envía ese reset global**. La publicación después de cerrar
+USB no se presume detenida; se registra como desconocida. No se reproducen rutas
+de autenticación, ADB, descarga o modificación del programa original.
+
+El lector inspecciona `21/06` dirigido a `0a`, separa emisores y ciclos y conserva
+los demás datos en RX. El formato de referencia es versión 0, cabecera de 3 bytes,
+índice de paquete en los 7 bits bajos del tercero y cierre en el bit alto, según
+los desplazamientos explícitos del lector nativo. Cada registro usa seis bytes:
+código uint32 LE, índice uint8 y nivel uint8. Los campos son **brutos**; ni el índice
+se asocia al selector SN ni se interpreta el nivel como gravedad clínica del sensor.
+El rango de referencia del SDK es 0–4; los otros valores se conservan sin equivalencia.
+
+No se cuenta un ciclo como completo con huecos, cierres contradictorios o paquetes
+extra. Una contradicción posterior revoca la completitud previamente contada.
+Las repeticiones idénticas no inflan ciclos o registros. Se muestran hasta 100
+registros distintos, 20 paquetes y 32 ciclos; máximo 1024 mensajes, 16 pares de
+emisores/destinatarios y 256 registros por ciclo. Los límites quedan en el informe.
+
+**Un ciclo vacío, silencio o ningún código no prueban salud.** No se utilizan las
+descripciones de alarmas M300 o disectores de drones antiguos para diagnosticar
+Mini 4 Pro. El lector informa su formato, incidencias y datos sin atribuirles una
+compatibilidad que aún requiere prueba física. No todos los mensajes HMS son de visión.
+
+Un ACK de suscripción se considera coincidente solo con origen/destino, familia,
+flag de respuesta, secuencia y tamaño esperados. El retorno cero registra aceptación,
+no salud; rechazo correlacionado detiene la prueba y conserva el código. Los ACK
+no correlacionados se guardan sin confirmar aceptación. La recepción termina a los
+ocho segundos, 1 MiB o 10000 lecturas; llamadas USB en curso pueden terminar después.
+El BIN guarda RX y el JSON la auditoría TX, ACK, ciclos e incidencias. Se crea ZIP
+incluso con error; no se sobrescribe o sube automáticamente. El porcentaje mide tiempo.
+
+Analizar captura visión también muestra HMS de archivos binarios, con procedencia
+local: no equivale a consultar el dron actual. Las capturas históricas DJI Test
+mantienen su tratamiento anterior y no se reclasifican como salud actual.
 
 ## Probar la lectura de SN
 
@@ -16,7 +67,10 @@ Esta acción envía cuatro peticiones 24/26 de número de serie, selectores 04/0
 una por vez. El payload y la trama reconstruida coinciden byte por byte con las
 188 consultas históricas disponibles: 47 por selector. Se revisaron estáticamente
 TSGetPerceptionSensorSN y V1Filter sin ejecutar ni redistribuir las DLL oficiales.
-**El funcionamiento de esas consultas en modo normal con este firmware aún no se ha probado.**
+**Dos pruebas aportadas por el usuario con firmware declarado 01.00.1100 dieron
+cuatro SN estables.** Se reanalizaron 15936/15641 bytes, 272/267 tramas válidas,
+cuatro registros SN por captura, sin CRC erróneo. Eso no prueba salud ni generaliza
+compatibilidad a otras aeronaves. La correlación sigue siendo experimental.
 No se reproducen los cambios de modo del flujo histórico; si necesita otro contexto,
 la prueba termina sin respuesta identificable y sin intentar entrar en fábrica.
 
@@ -102,11 +156,15 @@ independientes `vision_sensor_records.py`/`studio_protocol.py`. La interfaz usa 
 único trabajador y raíz Tk; mantiene activas solo las acciones Mini 4 Pro previstas.
 La consulta no abre automáticamente al arrancar, importar o elegir un modelo.
 
-205 pruebas de aplicación/interfaz, pruebas de empaquetado y arranque bajo Wine.
+246 pruebas de aplicación/interfaz, pruebas de empaquetado y arranque bajo Wine.
 Los tests cubren solicitudes históricas, perfil equivocado, paquetes inválidos,
 selector ajeno, fragmentos, silencio, conflicto de SN, cancelación, límites,
 envío corto/timeout, desconexión, error de disco/cierre, UI y ZIP con TX/RX.
 Wine ejecuta el coordinador y la pantalla con cuatro respuestas sintéticas, sin USB real.
-No se realizó aquí una consulta activa física ni prueba de Windows nativo.
-Ver `validacion-1.3.0.json`, resultados incluidos y
+No se realizó aquí una consulta física HMS ni prueba de Windows nativo. Los dos
+ensayos SN son evidencia aportada por el usuario, no hardware conectado al entorno.
+Wine comprueba además una suscripción HMS simulada, dos ciclos de referencia y
+un registro sin descripción validada, la tabla y el ZIP. Las fuentes públicas
+OSDK se consultan como referencia, no como garantía de compatibilidad Mini 4 Pro.
+Ver `validacion-1.4.0.json`, resultados incluidos y
 [análisis de DLL y registros](INVESTIGACION-REGISTROS-MINI4PRO.md).

@@ -1,4 +1,4 @@
-# DJI REPAIR Studio 1.3.0
+# DJI REPAIR Studio 1.4.0
 
 Herramienta Windows de una sola ventana con recepción USB pasiva Mini 4 Pro,
 análisis de archivos y **consulta SN experimental** en modo normal. La consulta
@@ -14,7 +14,14 @@ muestra SN observados, sin declarar correlación, identidad o salud confirmadas.
 La tabla conserva por separado datos actuales experimentales e históricos.
 Cada prueba genera un ZIP local con RX binario y JSON con auditoría TX y errores.
 No sube archivos. No carga ni redistribuye DLL propietarias o credenciales DJI.
-No implementa diagnóstico de salud, descarga/instalación o calibración óptica.
+El diagnóstico HMS experimental solicita publicación de estados con una petición
+21/05 payload 01 al perfil nativo 0a→1d y escucha ocho segundos. El parser 21/06
+agrupa emisores, ciclos, fragmentos y registros de seis bytes. Muestra códigos y
+niveles brutos, sin aplicar a Mini 4 Pro el mapa de alarmas de otros modelos.
+Ciclos vacíos, huecos o silencio no prueban salud. No implementa clasificación
+de salud validada, descarga/instalación o calibración óptica. No envía reset global
+de suscriptores; la publicación después de cerrar USB es desconocida. Su soporte
+HMS en modo normal con este firmware requiere prueba física.
 
 ## Desarrollo
 
@@ -28,8 +35,9 @@ En el entorno cloud preparado, las dependencias están en
 `/workspace/DJI-REPAIR-Studio/vendor`: usa
 `PYTHONPATH=.:/workspace/DJI-REPAIR-Studio/vendor python3.13 -m unittest discover -s tests -v`.
 Las pruebas gráficas requieren DISPLAY o Windows. El EXE se valida bajo Wine con
-receptores simulados y una sola raíz Tk. No equivale a Windows nativo o prueba
-física de consultas activas. 205 pruebas de aplicación/interfaz y 9 de empaquetado.
+receptores simulados y una sola raíz Tk. No equivale a Windows nativo o prueba física HMS.
+Dos capturas SN del usuario se reanalizaron: cuatro series estables, 272/267
+tramas válidas. No contienen HMS y no validan la nueva solicitud. 246 pruebas de aplicación/interfaz y 9 de empaquetado.
 
 Se contrastaron las peticiones contra 188 tramas históricas completas. El lector
 interpreta 89 registros/734 tramas y convierte 184 SN coincidentes con sus etiquetas;
@@ -39,3 +47,9 @@ No se publican adjuntos ni identificadores reales de unidad.
 
 Código base GPLv3: LICENSE-GPL-3.txt y avisos de los archivos originales.
 El ZIP incluye licencias de dependencias y fuentes de libusb-win32.
+
+`vision_hms.py` es un parser propio sin USB; `vision_hms_query.py` expone solo la
+petición HMS permitida y el receptor con límites. Datos desconocidos conservan su
+procedencia. Se consultaron como referencia de datos fuentes públicas OSDK y
+disectores DUML, con las diferencias de destino/bitfields documentadas en la
+investigación. No se incorpora código propietario ni cabeceras SDK a la aplicación.

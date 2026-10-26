@@ -1,7 +1,8 @@
-# Investigación de DLL y registros · DJI REPAIR Studio 1.3.0
+# Investigación de DLL y registros · DJI REPAIR Studio 1.4.0
 
-**Estado actual 1.3.0:** recepción pasiva probada por el usuario y reanalizada;
-consulta SN experimental disponible. Las restricciones descritas abajo reflejan
+**Estado actual 1.4.0:** recepción pasiva y dos lecturas SN del usuario reanalizadas;
+cuatro SN estables. Se añade lectura HMS experimental, con interpretación específica
+de alarmas Mini 4 Pro todavía pendiente. Las restricciones descritas abajo reflejan
 las etapas de investigación anteriores; la última sección recoge los cambios actuales.
 
 Se analizaron estáticamente los dos binarios recibidos y se contrastaron sus
@@ -245,3 +246,45 @@ El ZIP automático contiene RX binario y JSON con auditoría TX.
 205 pruebas de aplicación/interfaz y arranque del EXE bajo Wine con USB simulado.
 La prueba física de la nueva consulta y su correlación siguen pendientes. No se
 habilitan diagnóstico de salud, descarga/instalación o calibración óptica.
+
+## Diagnóstico HMS experimental · revisión 1.4.0
+
+El constructor HMS en RVA 0x559410 de dji_test_userlibs.dll fija el encabezado
+0a/00/1d/00 (VA 0x105595e1), familia 21 (0x105595ed) y flags 40. HMSBegin
+RVA 0x559780 fija id 05 y vector de un byte 01 antes de enviar. HMSCheck
+RVA 0x559c60 fija id 06 y espera sin enviar una nueva petición. Se reconstruye
+solo esa solicitud de publicación, sin ejecutar la DLL ni otras órdenes.
+
+El lector nativo extrae índice con &0x7f en 0x1055a218 y fin con >>7 en
+0x1055a39e. En 0x1055a854 calcula (longitud-3)/6; en 0x1055ab8d avanza seis
+bytes por registro y omite tres de cabecera. El parser propio conserva versión,
+emisor, ciclo, fragmentos y códigos en lugar de copiar sus supuestos de éxito.
+
+Como referencia pública se revisó DJI Onboard SDK, commit
+118e2825a347499efb8ed253146552c5b9b10779:
+- osdk-core/api/inc/dji_hms.hpp documenta código uint32, índice y nivel uint8.
+- dji_hms_impl.cpp copia tres bytes de cabecera y registros de seis bytes.
+- dji_hms.cpp identifica payload 01 como solicitud de publicación y 00 como
+  reset de otros suscriptores. No se reproduce la orden global de reset.
+- El destino OSDK y su declaración de bitfields no coinciden con el lector nativo:
+  no se sustituyen silenciosamente por el perfil de la DLL aportada.
+- La API pública está documentada para M300; su tabla de 700 alarmas no se aplica
+  como descripción validada de Mini 4 Pro.
+
+También se revisaron disectores públicos o-gs/dji-firmware-tools, commit
+1db36ddf45d8018ea849f0c03c5e45d2f3068844. Sus campos de visión se refieren a
+versiones/productos anteriores y no se usan para dictaminar salud de Mini 4 Pro.
+Get Device State 00/0c describe ejecución loader/app, no diagnóstico de salud.
+CheckPerceptionCaliNotDefault usa archivos/ADB; no se transforma en una consulta
+USB de calibración o en una operación de fábrica.
+
+La versión 1.4.0 permite una petición HMS al perfil nativo y ocho segundos de
+recepción, con límites, cancelación y auditoría TX/RX. Rechazos, formato desconocido,
+fragmentos faltantes, conflictos y ciclos vacíos no producen un diagnóstico sano.
+Los registros se muestran sin mapa de alarmas Mini 4 Pro validado. El estado de
+publicación después de cerrar USB es desconocido; no se garantiza desuscripción.
+
+246 pruebas de aplicación/interfaz y arranque bajo Wine con datos sintéticos.
+Las dos capturas SN del usuario contienen cuatro series estables, pero ningún
+21/06; no validan HMS. Su prueba física y la clasificación de códigos siguen
+pendientes. Ningún original o identificador real de unidad se publica.

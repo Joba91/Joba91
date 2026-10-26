@@ -11,9 +11,9 @@ class VisionView(ttk.Frame):
         self.format=tk.StringVar(value='auto');self.source=tk.StringVar(value='Ningún paquete importado')
         self.firmware=tk.StringVar();self.capture_seconds=tk.StringVar(value='5')
         self.columnconfigure(0,weight=1);self.rowconfigure(4,weight=1)
-        ttk.Label(self,text='Mini 4 Pro · visión e identificación experimental',font=('Segoe UI',12,'bold')).grid(row=0,column=0,sticky='w')
-        ttk.Label(self,text='Cierra otros clientes USB y conserva modo normal. Consultar SN envía hasta cuatro peticiones de identificación: funcionamiento pendiente de validar en firmware 01.00.1100. No inicia fábrica ni calibración.',wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
-        self.states=ttk.Treeview(self,columns=('state','detail'),show='tree headings',height=6)
+        ttk.Label(self,text='Mini 4 Pro · visión, SN y diagnóstico HMS experimental',font=('Segoe UI',12,'bold')).grid(row=0,column=0,sticky='w')
+        ttk.Label(self,text='Conserva modo normal y cierra otros clientes USB. Diagnóstico HMS solicita publicación de estados; su soporte en Mini 4 Pro está pendiente de prueba. Presenta códigos y niveles, sin afirmar salud o calibración.',wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
+        self.states=ttk.Treeview(self,columns=('state','detail'),show='tree headings',height=7)
         self.states.heading('#0',text='Comprobación');self.states.column('#0',width=130,minwidth=110,stretch=False)
         self.states.heading('state',text='Estado');self.states.column('state',width=105,stretch=False)
         self.states.heading('detail',text='Resultado / procedencia');self.states.column('detail',width=460)
@@ -33,6 +33,18 @@ class VisionView(ttk.Frame):
         self.controls.extend([(firmware_entry,'normal'),(capture_entry,'readonly')])
         tabs=ttk.Notebook(self);tabs.grid(row=4,column=0,sticky='nsew',pady=5)
         self.tabs=tabs
+        diagnostic=ttk.Frame(tabs);diagnostic.columnconfigure(0,weight=1);diagnostic.rowconfigure(1,weight=1)
+        tabs.add(diagnostic,text='Diagnóstico HMS');self.hms_page=diagnostic
+        self.hms_summary=tk.StringVar(value='Pulsa Diagnóstico visión (HMS). Solicita estados y escucha 8 segundos; no inicia calibración.')
+        ttk.Label(diagnostic,textvariable=self.hms_summary,wraplength=820).grid(row=0,column=0,sticky='w',pady=5)
+        self.hms_records=ttk.Treeview(diagnostic,columns=('sender','sensor','level','cycle','description'),show='tree headings',height=4)
+        self.hms_records.heading('#0',text='Código informado');self.hms_records.column('#0',width=130)
+        for key,label,width in [('sender','Emisor',65),('sensor','Índice',60),('level','Nivel bruto',80),('cycle','Ciclo',100),('description','Interpretación',330)]:
+            self.hms_records.heading(key,text=label);self.hms_records.column(key,width=width)
+        self.hms_records.grid(row=1,column=0,sticky='nsew')
+        scroll=ttk.Scrollbar(diagnostic,command=self.hms_records.yview);scroll.grid(row=1,column=1,sticky='ns')
+        self.hms_records.configure(yscrollcommand=scroll.set)
+        ttk.Label(diagnostic,text='Formato HMS de referencia; compatibilidad y descripciones Mini 4 Pro sin validar. Un ciclo vacío o falta de mensajes no demuestran sensores sanos. No todos los códigos recibidos pertenecen a visión.',wraplength=820).grid(row=2,column=0,sticky='w',pady=5)
         current=ttk.Frame(tabs);current.columnconfigure(0,weight=1);current.rowconfigure(1,weight=1)
         tabs.add(current,text='Consulta SN (prueba)');self.current_sensor_page=current
         self.current_sensor_summary=tk.StringVar(value='Usa Consultar SN visión (prueba) en el lateral; guarda un .bin nuevo para generar el ZIP de resultados.')
@@ -67,11 +79,22 @@ class VisionView(ttk.Frame):
         detail=ttk.Frame(tabs);detail.columnconfigure(0,weight=1);detail.rowconfigure(0,weight=1);tabs.add(detail,text='Resultados y evidencia')
         self.details=tk.Text(detail,wrap='word',font=('Consolas',9),state='disabled');self.details.grid(row=0,column=0,sticky='nsew')
         scroll=ttk.Scrollbar(detail,command=self.details.yview);scroll.grid(row=0,column=1,sticky='ns');self.details.configure(yscrollcommand=scroll.set)
-        ttk.Label(self,text='Consultar SN y Capturar USB pasivo crean un ZIP local con recepción e informe. Comparte ese ZIP para revisar la prueba. Guardar informe exporta JSON.',wraplength=850).grid(row=5,column=0,sticky='w',pady=5)
+        ttk.Label(self,text='HMS, SN y captura pasiva crean un ZIP local con recepción e informe. Comparte el ZIP generado para revisar la prueba. Guardar informe exporta JSON.',wraplength=850).grid(row=5,column=0,sticky='w',pady=5)
         self.refresh_states()
 
     def apply_report(self,category,data):
         self.reports[category]=data
+        if category in ('diagnostic','capture'):
+            hms=data.get('hms',{})
+            self.hms_records.delete(*self.hms_records.get_children())
+            provenance='Consulta HMS actual' if category=='diagnostic' else 'Recepción pasiva actual' if data.get('origin')=='live_usb_passive' else 'Archivo local'
+            self.hms_summary.set(f"{provenance} · {hms.get('packets_seen',0)} mensajes · {hms.get('complete_cycles',0)} ciclos completos de referencia · "
+                f"{hms.get('distinct_records_shown',0)} registros distintos. Salud desconocida."+(' Error: '+data['error'] if data.get('error') else ''))
+            for record in hms.get('records_preview',[]):
+                self.hms_records.insert('', 'end',text=record['alarm_code_raw'],values=(record['sender_raw'],
+                    record['sensor_index_raw'],record['report_level_raw'],
+                    'completo' if record['seen_in_complete_cycle'] else 'incompleto',record['description']))
+            if category=='diagnostic' or hms.get('packets_seen'):self.tabs.select(self.hms_page)
         if category=='identity':
             self.current_sensor_records.delete(*self.current_sensor_records.get_children())
             rows=data.get('queries',[])
@@ -115,5 +138,6 @@ class VisionView(ttk.Frame):
         unknown={'state':'desconocido','detail':'Sin datos; utiliza las acciones del lateral.'}
         source={'state':'confirmado' if 'files' in package else package.get('state','desconocido'),'detail':package.get('source','Ningún paquete importado')}
         rows=[('Identificación',identity),('Procedencia',source),('Integridad MD5',package.get('integrity',package if package else unknown)),
-              ('Compatibilidad',compatibility),('Captura',self.reports.get('capture',unknown)),('Servidor',self.reports.get('server',unknown))]
+              ('Compatibilidad',compatibility),('Captura',self.reports.get('capture',unknown)),
+              ('Diagnóstico HMS',self.reports.get('diagnostic',unknown)),('Servidor',self.reports.get('server',unknown))]
         for title,data in rows:self.states.insert('', 'end',text=title,values=(data['state'],data['detail']))

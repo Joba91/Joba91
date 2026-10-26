@@ -89,6 +89,30 @@ def main():
             sn_bundle=write_support_bundle(root/'sn.bin',{'test_data':'synthetic','vision':{'identity':sn}})
             with ZipFile(sn_bundle) as z:
                 sn_bundle_ok=z.testzip() is None and len(json.loads(z.read('DJI-REPAIR-informe.json'))['vision']['identity']['tx_audit'])==4
+            from vision_hms_query import probe_hms,hms_subscription_request
+            hms_clock=SyntheticClock()
+            class SyntheticHmsReceiver:
+                evidence={'synthetic':True,'no_usb_opened':True}
+                closed=False;timeouts=0
+                def __init__(self):self.tx_audit=[];self.pending=[]
+                def subscribe_hms(self,sequence):
+                    self.tx_audit.append({'hex':hms_subscription_request(sequence).hex(' '),'sequence':sequence,
+                        'requested_bytes':14,'transferred_bytes':14,'status':'transferred'})
+                    self.pending=[packet(0x1d,0x0a,sequence,0x21,5,b'\0',flags=0x80),
+                        packet(0x1d,0x0a,900,0x21,6,bytes.fromhex('00 00 80 78 56 34 12 02 03'),flags=0),
+                        packet(0x1d,0x0a,901,0x21,6,bytes.fromhex('00 01 80'),flags=0)]
+                def read(self):
+                    hms_clock.value+=.2
+                    if self.pending:return self.pending.pop(0)
+                    self.timeouts+=1;return b''
+                def close(self):self.closed=True
+            hms_receiver=SyntheticHmsReceiver();hms_progress=[]
+            hms_report=probe_hms(root/'hms.bin','01.00.1100',transport_factory=lambda:hms_receiver,
+                clock=hms_clock,sequence_seed=10,progress=hms_progress.append)
+            app.vision.apply_report('diagnostic',hms_report)
+            hms_bundle=write_support_bundle(root/'hms.bin',{'test_data':'synthetic','vision':{'diagnostic':hms_report}})
+            with ZipFile(hms_bundle) as z:
+                hms_bundle_ok=z.testzip() is None and json.loads(z.read('DJI-REPAIR-informe.json'))['vision']['diagnostic']['hms']['complete_cycles']==2
             vision_report={'test_data':'synthetic; not the user calibration package',
                 'inventory_files':inventory['file_count'],'md5_state':inventory['integrity']['state'],
                 'compatibility':LocalCalibrationProvider().compatibility(inventory,None).state,
@@ -111,7 +135,15 @@ def main():
                     'identity_confirmed':sn['current_device_confirmed'],'ui_rows':len(app.vision.current_sensor_records.get_children()),
                     'configuration_writes':sn['device_configuration_writes'],'factory_commands':sn['factory_commands_sent'],
                     'receiver_closed':sn_receiver.closed,'last_percent':sn_progress[-1]['percent'],
-                    'support_bundle':sn_bundle_ok,'real_usb_opened':False}}
+                    'support_bundle':sn_bundle_ok,'real_usb_opened':False},
+                'hms_probe_synthetic_test':{'state':hms_report['state'],'rx_bytes':hms_report['received_bytes'],
+                    'tx_bytes':hms_report['bulk_out_bytes_confirmed'],'requests_sent':hms_report['protocol_commands_sent'],
+                    'complete_reference_cycles':hms_report['hms']['complete_cycles'],
+                    'distinct_records':hms_report['hms']['distinct_records_shown'],'ui_rows':len(app.vision.hms_records.get_children()),
+                    'health':hms_report['device_health'],'calibration':hms_report['calibration_status'],
+                    'reset_all_commands':hms_report['global_unsubscribe_commands_sent'],
+                    'receiver_closed':hms_receiver.closed,'last_percent':hms_progress[-1]['percent'],
+                    'support_bundle':hms_bundle_ok,'real_usb_opened':False}}
         report = {
             'interfaz': app.title(),
             'ventanas_principales': 1 + sum(isinstance(w, tk.Toplevel) for w in app.winfo_children()),

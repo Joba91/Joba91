@@ -19,15 +19,17 @@ from vision_services import AuthorizedServiceProvider, service_target
 from vision_usb_passive import capture_passive, DECLARED_FIRMWARE
 from vision_support_bundle import write_support_bundle
 from vision_sensor_query import query_sensor_serials
+from vision_hms_query import probe_hms
 from pathlib import Path
 
-VERSION = '1.3.0'
+VERSION = '1.4.0'
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
           'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Mini 5 Pro')
 PROFILE_CODES = {'Mavic 3':'WM260','Mavic 3 Cine':'WM260','Mavic 4 Pro':'MAVIC4PRO','Mini 5 Pro':'MT5MFND'}
 CALIBRATION_ACTIONS = ('JointCoarse','LinearHall','Entrar modo fabrica','Salir modo fabrica','Escuchar progreso (20 s)')
 SN_ACTION='Consultar SN visión (prueba)'
-VISION_ACTIONS = ('Importar carpeta visión','Importar ZIP visión','Analizar captura visión','Capturar USB pasivo','Comprobar servidor visión',SN_ACTION)
+HMS_ACTION='Diagnóstico visión (HMS)'
+VISION_ACTIONS = ('Importar carpeta visión','Importar ZIP visión','Analizar captura visión','Capturar USB pasivo','Comprobar servidor visión',SN_ACTION,HMS_ACTION)
 
 class ProgressState:
     """No time-based inference of motor/calibration completion."""
@@ -316,12 +318,12 @@ class StudioApp(tk.Tk):
             elif action=='Comprobar servidor visión':
                 snapshot['url']=self.vision.url.get().strip();service_target(snapshot['url'])
                 snapshot['timeout']=float(self.vision.timeout.get())
-            elif action in ('Capturar USB pasivo',SN_ACTION):
+            elif action in ('Capturar USB pasivo',SN_ACTION,HMS_ACTION):
                 snapshot['firmware']=self.vision.firmware.get().strip()
                 if snapshot['firmware']!=DECLARED_FIRMWARE:
                     raise ValueError('Escribe 01.00.1100 en Firmware declarado si es la versión que muestra DJI Fly para tu Mini 4 Pro.')
                 snapshot['seconds']=int(self.vision.capture_seconds.get())
-                prefix='Mini4Pro-SN' if action==SN_ACTION else 'Mini4Pro-USB'
+                prefix='Mini4Pro-HMS' if action==HMS_ACTION else 'Mini4Pro-SN' if action==SN_ACTION else 'Mini4Pro-USB'
                 snapshot['path']=filedialog.asksaveasfilename(parent=self,title='Guardar captura nueva (.bin); también se creará un ZIP con el informe',
                     defaultextension='.bin',initialfile=prefix+time.strftime('-%Y%m%d-%H%M%S.bin'),
                     filetypes=[('Captura binaria','*.bin')])
@@ -333,7 +335,7 @@ class StudioApp(tk.Tk):
                      'fecha_unix':time.time(),'resultado':None,'paquetes':[],'progreso':[],'vision':dict(self.vision.reports)}
         self._set_busy(True,action!='Comprobar servidor visión')
         self.progress_bar.configure(mode='indeterminate');self.progress_value.set(0);self.progress_bar.start(12)
-        self.percent_text.set('—');self.progress_text.set('Preparando prueba SN en modo normal' if action==SN_ACTION else 'Recepción USB pasiva solicitada; sin peticiones de servicio' if action=='Capturar USB pasivo' else 'Procesando archivo o sondeo; sin consulta al dron')
+        self.percent_text.set('—');self.progress_text.set('Preparando prueba HMS en modo normal' if action==HMS_ACTION else 'Preparando prueba SN en modo normal' if action==SN_ACTION else 'Recepción USB pasiva solicitada; sin peticiones de servicio' if action=='Capturar USB pasivo' else 'Procesando archivo o sondeo; sin consulta al dron')
         self.status.set(action);self.append('>>> '+action)
         threading.Thread(target=self.vision_worker,args=(action,snapshot),daemon=True).start()
 
@@ -350,8 +352,11 @@ class StudioApp(tk.Tk):
             elif action=='Comprobar servidor visión':
                 data=AuthorizedServiceProvider(snapshot['url']).probe(snapshot['timeout']);category='server'
                 state=data['state'];detail=data['detail']
-            elif action in ('Capturar USB pasivo',SN_ACTION):
-                if action==SN_ACTION:
+            elif action in ('Capturar USB pasivo',SN_ACTION,HMS_ACTION):
+                if action==HMS_ACTION:
+                    receipt=probe_hms(snapshot['path'],snapshot['firmware'],
+                        cancelled=self.stop.is_set,progress=lambda e:self.events.put(('progress',e)))
+                elif action==SN_ACTION:
                     receipt=query_sensor_serials(snapshot['path'],snapshot['firmware'],
                         cancelled=self.stop.is_set,progress=lambda e:self.events.put(('progress',e)))
                 else:
@@ -364,7 +369,7 @@ class StudioApp(tk.Tk):
                 analysis=data
                 analysis.pop('declared_historical_usb',None)
                 analysis.pop('initial_150_ack_claim',None)
-                if action==SN_ACTION:
+                if action in (SN_ACTION,HMS_ACTION):
                     data={**receipt,'received_capture_analysis':analysis}
                     if 'frame_analysis_error' in analysis:
                         data.update(state='error',detail=analysis['detail'])
@@ -374,7 +379,7 @@ class StudioApp(tk.Tk):
                         state='error' if 'frame_analysis_error' in data else receipt['state'])
                 data.pop('declared_historical_usb',None)
                 data.pop('initial_150_ack_claim',None)
-                category='identity' if action==SN_ACTION else 'capture';state=data['state'];detail=data['detail']
+                category='diagnostic' if action==HMS_ACTION else 'identity' if action==SN_ACTION else 'capture';state=data['state'];detail=data['detail']
                 base_detail=detail
                 bundle_path=str(Path(receipt['capture_path']).with_suffix('.zip'))
                 data['support_bundle']={'state':'confirmado','path':bundle_path,
@@ -396,7 +401,7 @@ class StudioApp(tk.Tk):
             self.events.put(('vision',{'category':category,'data':data}))
             self.events.put(('error' if state=='error' else 'result',{'estado':state,'detalle':detail}))
         except Exception as exc:
-            category='package' if action.startswith('Importar') else 'capture' if action in ('Analizar captura visión','Capturar USB pasivo') else 'server' if action=='Comprobar servidor visión' else 'identity'
+            category='diagnostic' if action==HMS_ACTION else 'package' if action.startswith('Importar') else 'capture' if action in ('Analizar captura visión','Capturar USB pasivo') else 'server' if action=='Comprobar servidor visión' else 'identity'
             data={'state':'error','detail':str(exc),'source':'Operación local o sondeo solicitado'}
             self.events.put(('vision',{'category':category,'data':data}))
             self.events.put(('error',{'estado':'error','detalle':str(exc)}))
@@ -414,7 +419,7 @@ class StudioApp(tk.Tk):
 
     def model_changed(self,*args):
         self.sync_operation_buttons(self.running)
-        self.connection_text.set('Mini 4 Pro: recepción USB y prueba de consulta SN disponibles' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
+        self.connection_text.set('Mini 4 Pro: USB, consulta SN y diagnóstico HMS experimental' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
         if self.model.get()=='Mini 4 Pro' and not self.running:self.select_page('Visión Mini 4 Pro')
 
     def worker(self,action,po,advanced=None):

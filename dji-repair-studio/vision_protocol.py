@@ -5,6 +5,7 @@ from studio_protocol import checksum
 from vision_history import analyze_dji_log, is_dji_log
 from vision_sensor_records import decode_perception_record, is_perception_record
 from collections import Counter
+from vision_hms import HmsTracker
 
 MAX_CAPTURE = 32 * 1024**2
 MAX_FRAMES = 100000
@@ -15,6 +16,7 @@ class CaptureDecoder:
         self.buffer=bytearray();self.offset=0;self.frames=[];self.total_frames=0
         self.issues=[];self.issue_count=0;self.discarded=0;self.sequence_frames=set()
         self.perception=[];self.perception_counts=Counter()
+        self.hms=HmsTracker()
 
     def issue(self,kind,detail):
         self.issue_count+=1
@@ -52,6 +54,7 @@ class CaptureDecoder:
             self.total_frames+=1
             if self.total_frames>MAX_FRAMES:raise ValueError('Captura supera 100000 tramas; analiza un fragmento menor')
             self.sequence_frames.add(frame)
+            self.hms.observe(frame)
             if is_perception_record(frame):
                 record=decode_perception_record(frame[11:-2])
                 self.perception_counts['records']+=1
@@ -73,6 +76,7 @@ class CaptureDecoder:
                 'valid_frames':self.total_frames,'distinct_frames':len(self.sequence_frames),
                 'issue_count':self.issue_count,'discarded_bytes':self.discarded,'pending_bytes':len(self.buffer),
                 'frames_preview':self.frames,'issues_preview':self.issues,'preview_limit':PREVIEW,
+                'hms':self.hms.result(),
                 'perception_records':{'counts':dict(self.perception_counts),'observations_preview':self.perception,
                     'preview_limit':PREVIEW,'current_device_confirmed':False,
                     'detail':'Conversión del formato binario observado; no valida consulta, salud o compatibilidad.'},
