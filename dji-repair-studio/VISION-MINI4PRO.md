@@ -1,4 +1,4 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.3
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.2.4
 
 Estado: diagnóstico de archivos y recepción USB pasiva implementados. La consulta
 activa de sensores, descarga e instalación de calibraciones siguen pendientes.
@@ -21,7 +21,7 @@ activa de sensores, descarga e instalación de calibraciones siguen pendientes.
    la vista limitada de etiquetas del archivo.
 5. **Capturar USB pasivo** recibe datos de IN `85`, interfaz `4`, sin enviar
    peticiones de servicio. Requiere Mini 4 Pro, firmware **declarado** `01.00.1100`,
-   configuración 1 High-Speed, alternativa 0 y endpoints bulk IN `85` / OUT `04`
+   configuración 1, alternativa 0 y endpoints bulk IN `85` / OUT `04`
    de 512 bytes. Escribe el firmware de DJI Fly en el campo correspondiente.
    Cierra otros clientes USB del PC y conserva el modo normal. Elige un archivo
    **nuevo** `.bin`; se conservan los archivos existentes.
@@ -66,6 +66,37 @@ Límites: 5000 archivos, 256 MiB por archivo, 2 GiB por paquete, 4 MiB por manif
 capturas hasta 32 MiB y 100000 tramas. Se rechazan ZIP cifrados, enlaces, nombres
 ambiguos para Windows y relaciones de compresión excesivas. La cancelación detiene
 la lectura local; no actúa sobre el dron.
+
+## Compatibilidad con libusb0 en Windows
+
+El usuario informó que MI04 tiene servicio `libusb0_device`, estado OK y código
+0. La captura de la versión 1.2.3 falló antes de cualquier lectura con el mensaje
+`Operation not supported or unimplemented on this platform`, correspondiente a
+`LIBUSB_ERROR_NOT_SUPPORTED` de la biblioteca usada. No se diagnosticaron sensores.
+
+La versión 1.2.4 incluye la biblioteca de usuario **libusb-win32 1.4.0.2 amd64** y
+prioriza `libusb0` en Windows. No instala, cambia ni sustituye el controlador.
+El código permite probar libusb 1.0 si la primera biblioteca no carga, no encuentra
+el dispositivo o comunica operación no soportada. No elude perfiles incorrectos,
+dispositivos ambiguos, acceso denegado o dispositivo ocupado mediante otro backend.
+
+PyUSB/libusb0 no informa la velocidad: `speed_verified` queda falso y el valor
+es `no_informada_por_libusb0`. Producto, configuración 1, interfaz 4/alternativa 0,
+clase y endpoints bulk IN 85 / OUT 04 de 512 bytes se siguen comprobando. Con
+libusb 1.0 se mantiene además la comprobación de velocidad High-Speed.
+
+El JSON guarda la API elegida en `usb_capture.usb.backend` y los errores por fase
+en `usb_capture.opening_diagnostics`. Se distinguen carga de biblioteca, enumeración,
+configuración, lectura de descriptor de producto, perfil y reclamación de interfaz.
+Si falla después de abrir, conserva el error de lectura, los intentos y el archivo
+parcial. Esto no acredita por sí solo una consulta de sensores válida.
+
+La DLL original x64 se verificó contra la huella del ZIP publicada por su autor.
+Procedencia, licencias y fuente completa correspondiente están en `native/` y en
+el directorio de licencias del ZIP. Solo se incluye la biblioteca de usuario,
+sin programas de instalación, filtros o controladores binarios. El acceso físico
+al servicio del usuario sigue pendiente; la carga de ambas bibliotecas sí se
+comprobó bajo Wine.
 
 ## Arquitectura
 
@@ -120,7 +151,7 @@ ante fallos y pruebas físicas. Ninguna de estas etapas se declara completada.
 
 ## Verificación
 
-Consulta `validacion-1.2.3.json` y `test-results-1.2.3.txt` para los resultados de
+Consulta `validacion-1.2.4.json` y `test-results-1.2.4.txt` para los resultados de
 esta entrega. Las pruebas cubren tramas válidas, CRC dañados, truncadas, concatenadas,
 longitudes incorrectas, recuperación, manifiestos, errores de importación, cancelación,
 límites, bloqueo de USB, sondeo solo solicitado y exportación desde la interfaz.

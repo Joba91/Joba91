@@ -18,7 +18,7 @@ from vision_interfaces import UnavailableIdentification, LocalCalibrationProvide
 from vision_services import AuthorizedServiceProvider, service_target
 from vision_usb_passive import capture_passive, DECLARED_FIRMWARE
 
-VERSION = '1.2.3'
+VERSION = '1.2.4'
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
           'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Mini 5 Pro')
 PROFILE_CODES = {'Mavic 3':'WM260','Mavic 3 Cine':'WM260','Mavic 4 Pro':'MAVIC4PRO','Mini 5 Pro':'MT5MFND'}

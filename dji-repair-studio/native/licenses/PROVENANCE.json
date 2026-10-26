@@ -1,0 +1,12 @@
+{
+  "project": "libusb-win32",
+  "version": "1.4.0.2",
+  "source_commit": "0987f983a89e5e60d3c2db2af46564239c1b0d37",
+  "release_url": "https://github.com/mcuee/libusb-win32/releases/tag/release_1.4.0.2",
+  "archive_sha256": "00004c92cdb99be36e17fb2377165eb97e63b48ba895bfc04a642ea9c3e26d94",
+  "dll_sha256": "0cd18719d5701e9cc642fc93a83f13830931d6f29f664fedbdf212bcb7c349bd",
+  "architecture": "amd64",
+  "original_member": "libusb-win32-bin-1.4.0.2/bin/amd64/libusb0.dll",
+  "driver_installers_included": false,
+  "dll_modified": false
+}

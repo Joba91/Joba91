@@ -103,8 +103,11 @@ def main():
             report['loopback_probe_worker']=probe_server('https://127.0.0.1:1',5)
         if sys.platform == 'win32':
             import usb.backend.libusb1
+            import usb.backend.libusb0
             native = Path(getattr(sys, '_MEIPASS', Path(__file__).parent)) / 'libusb-1.0.dll'
             report['usb_backend_cargado'] = usb.backend.libusb1.get_backend(find_library=lambda name: str(native)) is not None
+            legacy=Path(getattr(sys,'_MEIPASS',Path(__file__).parent/'native'))/'libusb0.dll'
+            report['libusb0_backend_cargado']=usb.backend.libusb0.get_backend(find_library=lambda name:str(legacy)) is not None
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

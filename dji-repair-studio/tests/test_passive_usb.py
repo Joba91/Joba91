@@ -4,8 +4,9 @@ import unittest
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import patch,Mock
+from types import SimpleNamespace
 import usb.core
-from vision_usb_passive import PassiveVisionUsbTransport,capture_passive
+from vision_usb_passive import PassiveVisionUsbTransport,capture_passive,UsbOpeningError
 from vision_protocol import decode_bytes
 from studio_service import packet
 from test_sensor_records import sample
@@ -34,7 +35,9 @@ class Device:
 class PassiveTransportTests(unittest.TestCase):
     def setUp(self):
         self.device=Device();self.stack=ExitStack();self.addCleanup(self.stack.close)
+        self.stack.enter_context(patch('vision_usb_passive.sys',SimpleNamespace(platform='linux')))
         self.backend=self.stack.enter_context(patch('usb.backend.libusb1.get_backend',return_value=object()))
+        self.legacy_backend=self.stack.enter_context(patch('usb.backend.libusb0.get_backend',return_value=object()))
         self.find=self.stack.enter_context(patch('usb.core.find',return_value=[self.device]))
         self.product=self.stack.enter_context(patch('usb.util.get_string',return_value='Mini 4 Pro-SYNTHETIC'))
         self.claim=self.stack.enter_context(patch('usb.util.claim_interface'))
@@ -83,9 +86,57 @@ class PassiveTransportTests(unittest.TestCase):
         self.device.get_active_configuration.assert_not_called()
     def test_driver_access_failure_disposes_without_install_or_detach(self):
         self.claim.side_effect=usb.core.USBError('access denied')
-        with self.assertRaises(usb.core.USBError):PassiveVisionUsbTransport()
+        with self.assertRaises(UsbOpeningError) as error:PassiveVisionUsbTransport()
+        self.assertEqual(error.exception.diagnostics[0]['stage'],'claim_interface_4')
+        self.assertEqual(error.exception.diagnostics[0]['exception_type'],'USBError')
         self.release.assert_not_called();self.dispose.assert_called_once_with(self.device)
         self.assert_no_device_changes()
+    def test_libusb0_unknown_speed_is_reported_without_fake_high_speed(self):
+        self.device.speed=None
+        t=PassiveVisionUsbTransport('libusb0')
+        self.assertEqual(t.evidence['backend'],'libusb0')
+        self.assertFalse(t.evidence['speed_verified'])
+        self.assertEqual(t.evidence['speed'],'no_informada_por_libusb0')
+        self.backend.assert_not_called();self.assertEqual(t.read(),b'abc');t.close()
+        self.assert_no_device_changes()
+    def test_libusb1_unknown_speed_still_rejected(self):
+        self.device.speed=None
+        with self.assertRaises(UsbOpeningError) as error:PassiveVisionUsbTransport('libusb1')
+        self.assertEqual(error.exception.diagnostics[0]['stage'],'check_configuration_and_speed')
+        self.claim.assert_not_called()
+    def test_windows_auto_prefers_legacy_without_replacing_driver(self):
+        with patch('vision_usb_passive.sys',SimpleNamespace(platform='win32')):
+            t=PassiveVisionUsbTransport()
+        self.assertEqual(t.evidence['backend'],'libusb0');self.backend.assert_not_called()
+        t.close();self.assert_no_device_changes()
+    def test_windows_auto_falls_back_only_when_legacy_has_no_matching_device(self):
+        self.find.side_effect=[[],[self.device]]
+        with patch('vision_usb_passive.sys',SimpleNamespace(platform='win32')):
+            t=PassiveVisionUsbTransport()
+        self.assertEqual(t.evidence['backend'],'libusb1')
+        self.assertEqual(t.evidence['backend_attempts'][0]['stage'],'enumerate_devices')
+        self.assertEqual(t.evidence['backend_attempts'][0]['candidate_devices'],0)
+        t.close();self.assert_no_device_changes()
+    def test_unsupported_error_records_exact_pre_read_stage(self):
+        self.legacy_backend.return_value=None
+        self.device.get_active_configuration.side_effect=NotImplementedError('Operation not supported or unimplemented on this platform')
+        with patch('vision_usb_passive.sys',SimpleNamespace(platform='win32')),self.assertRaises(UsbOpeningError) as error:
+            PassiveVisionUsbTransport()
+        self.assertEqual([d['stage'] for d in error.exception.diagnostics],['load_backend','get_active_configuration'])
+        self.assertEqual(error.exception.diagnostics[1]['exception_type'],'NotImplementedError')
+        self.claim.assert_not_called();self.assert_no_device_changes()
+    def test_wrong_product_never_falls_back_to_another_api(self):
+        self.product.return_value='Mavic 4 Pro'
+        with patch('vision_usb_passive.sys',SimpleNamespace(platform='win32')),self.assertRaises(UsbOpeningError) as error:
+            PassiveVisionUsbTransport()
+        self.assertEqual(error.exception.diagnostics[0]['stage'],'check_product')
+        self.backend.assert_not_called();self.claim.assert_not_called()
+        self.assert_no_device_changes()
+    def test_access_denied_never_falls_back_or_detaches_driver(self):
+        self.claim.side_effect=usb.core.USBError('access denied')
+        with patch('vision_usb_passive.sys',SimpleNamespace(platform='win32')),self.assertRaises(UsbOpeningError):
+            PassiveVisionUsbTransport()
+        self.backend.assert_not_called();self.assert_no_device_changes()
 
 class Clock:
     def __init__(self):self.now=0
@@ -151,6 +202,11 @@ class PassiveCaptureTests(unittest.TestCase):
         r=capture_passive(self.path,'01.00.1100',transport_factory=factory)
         self.assertEqual(r['state'],'error');self.assertEqual(r['usb'],{})
         self.assertEqual(r['bulk_in_attempts'],0);self.assertFalse(r['reception_completed'])
+    def test_initialization_diagnostics_survive_factory_failure(self):
+        diagnostics=[{'backend':'libusb1','stage':'get_active_configuration','exception_type':'NotImplementedError','message':'unsupported'}]
+        r=capture_passive(self.path,'01.00.1100',transport_factory=Mock(side_effect=UsbOpeningError(diagnostics)))
+        self.assertEqual(r['opening_diagnostics'],diagnostics)
+        self.assertEqual(r['bulk_in_attempts'],0);self.assertEqual(r['protocol_commands_sent'],0)
     def test_reception_close_failure_cannot_be_success(self):
         self.receiver=Receiver(self.clock,[]);self.receiver.close=Mock(side_effect=OSError('release failed'))
         r=capture_passive(self.path,'01.00.1100',transport_factory=lambda:self.receiver,clock=self.clock,progress=self.progress.append)

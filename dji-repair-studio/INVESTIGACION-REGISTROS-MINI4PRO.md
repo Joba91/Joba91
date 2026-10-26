@@ -1,4 +1,4 @@
-# Investigación de DLL y registros · DJI REPAIR Studio 1.2.3
+# Investigación de DLL y registros · DJI REPAIR Studio 1.2.4
 
 Se analizaron estáticamente los dos binarios recibidos y se contrastaron sus
 estructuras con los 89 registros anteriores. No se cargaron ni ejecutaron las DLL.
@@ -108,8 +108,9 @@ reutilizar autenticación. El EXE propio no necesita las DLL oficiales.
 ## Qué queda pendiente
 
 Los descriptores del reporte actual y la versión declarada permiten preparar
-una **recepción USB pasiva**. El nuevo transporte comprueba producto, velocidad,
-configuración, interfaz, clase y endpoints antes de reclamar la interfaz 4.
+una **recepción USB pasiva**. El transporte comprueba producto, configuración, interfaz, clase y endpoints antes
+de reclamar la interfaz 4. Con libusb 1.0 verifica además la velocidad; libusb0
+no la informa y el resultado se declara desconocido.
 Solo expone lectura de IN 85 y liberación; no manda peticiones de servicio,
 no utiliza OUT 04 y no cambia configuración, modo, drivers o firmware.
 
@@ -131,9 +132,33 @@ Las pruebas sintéticas cubren conversión sin etiquetas, cuatro selectores,
 campos inválidos, límites de fecha, proveedor, nibble, CRC incorrecto, ecos,
 etiquetas discordantes y tabla de sensores sin identificar el equipo conectado.
 La ejecución del EXE bajo Wine analiza además los 89 registros reales; solo se
-publican los recuentos. Véanse `validacion-1.2.3.json` y los resultados de pruebas.
+publican los recuentos. Véanse `validacion-1.2.4.json` y los resultados de pruebas.
 La recepción pasiva se prueba con dependencias USB simuladas: timeout, desconexión,
 configuración incorrecta, rechazo de otro modelo, cancelación, límite de bytes,
 archivo existente y error de disco/cierre. El EXE bajo Wine recorre esa misma
 captura con un receptor sintético; no se abre un dron.
 Windows nativo y hardware real siguen sin probarse.
+
+## Incidencia de apertura y revisión 1.2.4
+
+El informe real de la versión 1.2.3 contiene cero bytes, cero intentos de lectura,
+cero timeouts y error `Operation not supported or unimplemented on this platform`.
+Ese texto corresponde a `LIBUSB_ERROR_NOT_SUPPORTED` (-12) en la biblioteca
+incluida. El informe antiguo no registró la llamada exacta que falló. El usuario
+aportó después el servicio de MI04: `libusb0_device`, estado OK, código de
+Administrador de dispositivos 0. No se atribuye ese fallo a los sensores.
+
+Se revisó el código oficial libusb-win32 de la revisión
+`0987f983a89e5e60d3c2db2af46564239c1b0d37`: apertura con CreateFile y consulta
+de configuración cacheada, reclamación de interfaz, GET estándar y lectura bulk.
+No se invocan sus APIs de instalación, configuración, reset o escritura USB.
+Se incluye únicamente su biblioteca de usuario 1.4.0.2 amd64, verificada contra
+la huella publicada de la distribución. El servicio del usuario no se modifica.
+
+El receptor prioriza esa API en Windows, registra fases y conserva excepciones
+de inicialización. La ausencia de velocidad en PyUSB/libusb0 se registra como
+desconocida, sin inventar High-Speed. Los demás campos del perfil siguen
+verificándose. Las pruebas cubren elección de API, ausencia de velocidad,
+fallback limitado, denegación de acceso, perfil equivocado y errores antes de leer.
+Ambas bibliotecas cargaron bajo Wine. La recepción física con ese controlador
+no se declara probada y las consultas activas de sensores siguen pendientes.

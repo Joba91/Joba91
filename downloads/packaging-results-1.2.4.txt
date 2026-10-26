@@ -1,0 +1,14 @@
+test_embedded_resource_24_1_0_selects_v6_without_elevation (test_windows_manifest.ManifestRegressionTests.test_embedded_resource_24_1_0_selects_v6_without_elevation) ... ok
+test_existing_resources_cannot_be_overwritten (test_windows_manifest.ManifestRegressionTests.test_existing_resources_cannot_be_overwritten) ... ok
+test_finished_checksum_matches_independent_pe_parser (test_windows_manifest.ManifestRegressionTests.test_finished_checksum_matches_independent_pe_parser) ... ok
+test_legacy_usb_library_is_verified_x64_user_library (test_windows_manifest.ManifestRegressionTests.test_legacy_usb_library_is_verified_x64_user_library) ... ok
+test_native_imports_unchanged (test_windows_manifest.ManifestRegressionTests.test_native_imports_unchanged) ... ok
+test_new_single_window_build_retains_startup_fix (test_windows_manifest.ManifestRegressionTests.test_new_single_window_build_retains_startup_fix) ... ok
+test_original_requires_ordinal_380_but_has_no_manifest (test_windows_manifest.ManifestRegressionTests.test_original_requires_ordinal_380_but_has_no_manifest) ... ok
+test_packaged_application_is_byte_for_byte_unchanged (test_windows_manifest.ManifestRegressionTests.test_packaged_application_is_byte_for_byte_unchanged) ... ok
+test_v5_manifest_refused (test_windows_manifest.ManifestRegressionTests.test_v5_manifest_refused) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 11.006s
+
+OK
