@@ -1,4 +1,4 @@
-# DJI REPAIR Studio 1.4.0
+# DJI REPAIR Studio 1.5.0
 
 Herramienta Windows de una sola ventana con recepción USB pasiva Mini 4 Pro,
 análisis de archivos y **consulta SN experimental** en modo normal. La consulta
@@ -37,7 +37,7 @@ En el entorno cloud preparado, las dependencias están en
 Las pruebas gráficas requieren DISPLAY o Windows. El EXE se valida bajo Wine con
 receptores simulados y una sola raíz Tk. No equivale a Windows nativo o prueba física HMS.
 Dos capturas SN del usuario se reanalizaron: cuatro series estables, 272/267
-tramas válidas. No contienen HMS y no validan la nueva solicitud. 246 pruebas de aplicación/interfaz y 9 de empaquetado.
+tramas válidas. No contienen HMS y no validan la nueva solicitud. 262 pruebas de aplicación/interfaz y 9 de empaquetado.
 
 Se contrastaron las peticiones contra 188 tramas históricas completas. El lector
 interpreta 89 registros/734 tramas y convierte 184 SN coincidentes con sus etiquetas;
@@ -53,3 +53,19 @@ petición HMS permitida y el receptor con límites. Datos desconocidos conservan
 procedencia. Se consultaron como referencia de datos fuentes públicas OSDK y
 disectores DUML, con las diferencias de destino/bitfields documentadas en la
 investigación. No se incorpora código propietario ni cabeceras SDK a la aplicación.
+
+## Corrección 21/08 en 1.5.0
+
+1.4.0 omitía mensajes extendidos que ya estaban en las capturas. Ahora se reconocen
+ambas familias, sin mezclar sus ciclos. En tres archivos se contrastaron 121 mensajes,
+234 cuerpos tag0/longitud20 y un registro de otro tipo conservado opaco. El BIN existente
+se abre con Analizar captura visión, sin USB. Los originales no se redistribuyen.
+
+Del cuerpo de veinte bytes se expone el primer uint32 LE como código candidato.
+Los otros campos permanecen opacos. Un cambio de cuerpo conserva variantes separadas;
+no se asume qué significa un bit de actividad, nivel, índice o fecha. Se muestran seis
+referencias del SDK calificadas y actividad desconocida. Los cuatro identificadores
+1A510380/382/384/385 no prueban por presencia un fallo activo o necesidad de calibración.
+Las referencias son contexto histórico, sin validar la clasificación Mini 4 Pro.
+El EXE bajo Wine reanaliza los tres archivos y prueba ambos formatos con datos sintéticos.
+No cambia la petición USB de HMS ni habilita comandos adicionales o calibraciones.

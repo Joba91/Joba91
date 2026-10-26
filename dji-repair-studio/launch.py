@@ -100,7 +100,8 @@ def main():
                         'requested_bytes':14,'transferred_bytes':14,'status':'transferred'})
                     self.pending=[packet(0x1d,0x0a,sequence,0x21,5,b'\0',flags=0x80),
                         packet(0x1d,0x0a,900,0x21,6,bytes.fromhex('00 00 80 78 56 34 12 02 03'),flags=0),
-                        packet(0x1d,0x0a,901,0x21,6,bytes.fromhex('00 01 80'),flags=0)]
+                        packet(0x1d,0x0a,901,0x21,6,bytes.fromhex('00 01 80'),flags=0),
+                        packet(0x1d,0x0a,902,0x21,8,b'\0\0\x80\x01\0\x14'+bytes.fromhex('80 03 51 1a')+bytes(16),flags=0)]
                 def read(self):
                     hms_clock.value+=.2
                     if self.pending:return self.pending.pop(0)
@@ -112,7 +113,7 @@ def main():
             app.vision.apply_report('diagnostic',hms_report)
             hms_bundle=write_support_bundle(root/'hms.bin',{'test_data':'synthetic','vision':{'diagnostic':hms_report}})
             with ZipFile(hms_bundle) as z:
-                hms_bundle_ok=z.testzip() is None and json.loads(z.read('DJI-REPAIR-informe.json'))['vision']['diagnostic']['hms']['complete_cycles']==2
+                hms_bundle_ok=z.testzip() is None and json.loads(z.read('DJI-REPAIR-informe.json'))['vision']['diagnostic']['hms']['complete_cycles']==3
             vision_report={'test_data':'synthetic; not the user calibration package',
                 'inventory_files':inventory['file_count'],'md5_state':inventory['integrity']['state'],
                 'compatibility':LocalCalibrationProvider().compatibility(inventory,None).state,
@@ -182,6 +183,21 @@ def main():
             from vision_services import probe_server
             # Explicit CLI validation against loopback only, never historical DJI servers.
             report['loopback_probe_worker']=probe_server('https://127.0.0.1:1',5)
+        if '--validate-hms-capture-folder' in sys.argv:
+            directory=Path(sys.argv[sys.argv.index('--validate-hms-capture-folder')+1])
+            files=sorted(p for p in directory.iterdir() if p.is_file() and p.suffix.lower()=='.bin')
+            if not 1<=len(files)<=8:raise ValueError('El corpus HMS debe contener 1–8 archivos binarios.')
+            summaries=[]
+            for path in files:
+                if path.stat().st_size>1024**2:raise ValueError('Captura HMS de referencia demasiado grande.')
+                result=analyze_capture(path,'binary');hms=result['hms']
+                summaries.append({'bytes':result['source_bytes'],'valid_frames':result['valid_frames'],
+                    'crc_issues':result['issue_count'],'family_counts':hms['family_counts'],
+                    'opaque_records':hms['opaque_record_observations'],
+                    'reference_vision_codes':len({r['alarm_code_raw'] for r in hms['records_preview']
+                        if r['alarm_code_raw'] in ('0x1A510380','0x1A510382','0x1A510384','0x1A510385')}),
+                    'health':hms['device_health'],'activity':hms['alarm_activity']})
+            report['provided_hms_corpus']={'files':len(files),'captures':summaries,'real_usb_operations':0}
         if sys.platform == 'win32':
             import usb.backend.libusb1
             import usb.backend.libusb0

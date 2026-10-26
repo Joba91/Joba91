@@ -1,9 +1,46 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.4.0
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.5.0
 
 Hay recepción USB pasiva, análisis de archivos y una nueva **consulta SN experimental**.
 Se añade solicitud y lectura HMS experimental; la compatibilidad de esos datos con
 Mini 4 Pro y la interpretación de sus alarmas siguen pendientes. Calibración óptica,
 descarga e instalación no están implementadas.
+
+## Corrección de mensajes extendidos y análisis sin USB
+
+1.4.0 interpretaba solamente `21/06`. La revisión del BIN de 3728 bytes mostró
+15 mensajes `21/08` adicionales. También estaban en las dos capturas previas,
+53 por archivo. El lector ahora conserva y presenta ambas familias.
+
+Abre tu BIN existente con **Analizar captura visión** para verlos en **Diagnóstico
+HMS**. Esta operación solo lee el archivo; no consulta el equipo actual. **Guardar
+informe** exporta el JSON reanalizado. No hace falta repetir una recepción para
+obtener los registros que ya están en el BIN.
+
+Los 121 mensajes observados obedecen cabecera de cuatro bytes, contador de registros
+seguido de TLV (tag uint8, tamaño uint8, cuerpo). Hay 234 cuerpos tag0/tamaño20 y
+un cuerpo de otro tipo/tamaño, preservado opaco. Del tag0/20 solo se expone el primer
+uint32 LE como código candidato; los otros 16 bytes se conservan sin asignarles
+estado activo/resuelto, índice, nivel, componente o fecha. Un contador o TLV
+inconsistente rechaza la interpretación de todo el paquete. Los ciclos `21/06` y
+`21/08` se agrupan por separado para no rellenar huecos entre familias.
+
+Una variación del cuerpo completo mantiene registros separados, incluso para
+el mismo código. No se descartan bytes variables que podrían contener un estado
+que todavía no entendemos. Los límites de ciclos/registros existentes siguen aplicándose.
+
+Se muestran seis referencias breves del SDK público, identificadas como tales:
+`1A510380`, `1A510382`, `1A510384` y `1A510385` se describen allí como errores de
+calibración inferior/posterior/izquierda/derecha; `1C000404` como ausencia de SD y
+`1C000408` como sistema de archivos de SD no compatible. El resto queda sin descripción.
+**Presencia de un código no prueba que la alarma esté activa**, que esa equivalencia
+sea válida para Mini 4 Pro, o que una calibración sea apropiada. La tabla incluye
+actividad desconocida y deja índice/nivel de `21/08` sin interpretar. Las referencias
+no se usan para habilitar calibración o recomendar borrado/formateo de datos.
+
+Los cuatro identificadores de referencia de visión aparecen en las tres capturas;
+se necesita contrastar el estado actual en DJI Fly y los campos no interpretados
+antes de convertirlos en diagnóstico de fallos activos. No se publica el material
+original ni se incorpora al ZIP de distribución.
 
 ## Probar diagnóstico HMS
 
@@ -37,9 +74,8 @@ Las repeticiones idénticas no inflan ciclos o registros. Se muestran hasta 100
 registros distintos, 20 paquetes y 32 ciclos; máximo 1024 mensajes, 16 pares de
 emisores/destinatarios y 256 registros por ciclo. Los límites quedan en el informe.
 
-**Un ciclo vacío, silencio o ningún código no prueban salud.** No se utilizan las
-descripciones de alarmas M300 o disectores de drones antiguos para diagnosticar
-Mini 4 Pro. El lector informa su formato, incidencias y datos sin atribuirles una
+**Un ciclo vacío, silencio o ningún código no prueban salud.** Las descripciones breves del SDK se muestran solo como referencias no validadas;
+no se utilizan para diagnosticar Mini 4 Pro o afirmar actividad de alarmas. El lector informa su formato, incidencias y datos sin atribuirles una
 compatibilidad que aún requiere prueba física. No todos los mensajes HMS son de visión.
 
 Un ACK de suscripción se considera coincidente solo con origen/destino, familia,
@@ -156,7 +192,7 @@ independientes `vision_sensor_records.py`/`studio_protocol.py`. La interfaz usa 
 único trabajador y raíz Tk; mantiene activas solo las acciones Mini 4 Pro previstas.
 La consulta no abre automáticamente al arrancar, importar o elegir un modelo.
 
-246 pruebas de aplicación/interfaz, pruebas de empaquetado y arranque bajo Wine.
+262 pruebas de aplicación/interfaz, pruebas de empaquetado y arranque bajo Wine.
 Los tests cubren solicitudes históricas, perfil equivocado, paquetes inválidos,
 selector ajeno, fragmentos, silencio, conflicto de SN, cancelación, límites,
 envío corto/timeout, desconexión, error de disco/cierre, UI y ZIP con TX/RX.
@@ -166,5 +202,5 @@ ensayos SN son evidencia aportada por el usuario, no hardware conectado al entor
 Wine comprueba además una suscripción HMS simulada, dos ciclos de referencia y
 un registro sin descripción validada, la tabla y el ZIP. Las fuentes públicas
 OSDK se consultan como referencia, no como garantía de compatibilidad Mini 4 Pro.
-Ver `validacion-1.4.0.json`, resultados incluidos y
+Ver `validacion-1.5.0.json`, resultados incluidos y
 [análisis de DLL y registros](INVESTIGACION-REGISTROS-MINI4PRO.md).

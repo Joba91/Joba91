@@ -37,14 +37,14 @@ class VisionView(ttk.Frame):
         tabs.add(diagnostic,text='Diagnóstico HMS');self.hms_page=diagnostic
         self.hms_summary=tk.StringVar(value='Pulsa Diagnóstico visión (HMS). Solicita estados y escucha 8 segundos; no inicia calibración.')
         ttk.Label(diagnostic,textvariable=self.hms_summary,wraplength=820).grid(row=0,column=0,sticky='w',pady=5)
-        self.hms_records=ttk.Treeview(diagnostic,columns=('sender','sensor','level','cycle','description'),show='tree headings',height=4)
+        self.hms_records=ttk.Treeview(diagnostic,columns=('sender','sensor','level','cycle','description','format','activity'),show='tree headings',height=4)
         self.hms_records.heading('#0',text='Código informado');self.hms_records.column('#0',width=130)
-        for key,label,width in [('sender','Emisor',65),('sensor','Índice',60),('level','Nivel bruto',80),('cycle','Ciclo',100),('description','Interpretación',330)]:
+        for key,label,width in [('sender','Emisor',55),('sensor','Índice',45),('level','Nivel bruto',70),('cycle','Ciclo',75),('description','Referencia / sin confirmar actividad',300),('format','Formato',65),('activity','Actividad',90)]:
             self.hms_records.heading(key,text=label);self.hms_records.column(key,width=width)
         self.hms_records.grid(row=1,column=0,sticky='nsew')
         scroll=ttk.Scrollbar(diagnostic,command=self.hms_records.yview);scroll.grid(row=1,column=1,sticky='ns')
         self.hms_records.configure(yscrollcommand=scroll.set)
-        ttk.Label(diagnostic,text='Formato HMS de referencia; compatibilidad y descripciones Mini 4 Pro sin validar. Un ciclo vacío o falta de mensajes no demuestran sensores sanos. No todos los códigos recibidos pertenecen a visión.',wraplength=820).grid(row=2,column=0,sticky='w',pady=5)
+        ttk.Label(diagnostic,text='Un código presente no confirma fallo activo. Las descripciones son referencias del SDK, sin validación específica Mini 4 Pro. En 21/08, índice/nivel/actividad siguen sin interpretar. Ciclos vacíos no prueban salud.',wraplength=820).grid(row=2,column=0,sticky='w',pady=5)
         current=ttk.Frame(tabs);current.columnconfigure(0,weight=1);current.rowconfigure(1,weight=1)
         tabs.add(current,text='Consulta SN (prueba)');self.current_sensor_page=current
         self.current_sensor_summary=tk.StringVar(value='Usa Consultar SN visión (prueba) en el lateral; guarda un .bin nuevo para generar el ZIP de resultados.')
@@ -92,8 +92,10 @@ class VisionView(ttk.Frame):
                 f"{hms.get('distinct_records_shown',0)} registros distintos. Salud desconocida."+(' Error: '+data['error'] if data.get('error') else ''))
             for record in hms.get('records_preview',[]):
                 self.hms_records.insert('', 'end',text=record['alarm_code_raw'],values=(record['sender_raw'],
-                    record['sensor_index_raw'],record['report_level_raw'],
-                    'completo' if record['seen_in_complete_cycle'] else 'incompleto',record['description']))
+                    record['sensor_index_raw'] if record['sensor_index_raw'] is not None else '—',
+                    record['report_level_raw'] if record['report_level_raw'] is not None else '—',
+                    'completo' if record['seen_in_complete_cycle'] else 'incompleto',record['description'],
+                    '21/'+record.get('command_id_raw','06'),record.get('alarm_activity','desconocido')))
             if category=='diagnostic' or hms.get('packets_seen'):self.tabs.select(self.hms_page)
         if category=='identity':
             self.current_sensor_records.delete(*self.current_sensor_records.get_children())

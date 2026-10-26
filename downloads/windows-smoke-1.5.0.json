@@ -1,0 +1,163 @@
+{
+  "interfaz": "DJI REPAIR Studio 1.5.0",
+  "ventanas_principales": 1,
+  "generador": "55 0d 04 33 0a 04 00 00 40 00 01 e6 2a",
+  "analizador_payload": "01",
+  "python": "3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:20:25) [MSC v.1942 64 bit (AMD64)]",
+  "usb_backend_cargado": true,
+  "operaciones_usb_ejecutadas": 0,
+  "vision": {
+    "test_data": "synthetic; not the user calibration package",
+    "inventory_files": 2,
+    "md5_state": "confirmado",
+    "compatibility": "desconocido",
+    "identity": "desconocido",
+    "write_enabled": false,
+    "usb_enabled": false,
+    "framing_valid": true,
+    "historical_reader": {
+      "format": "djilog",
+      "encoding": "gb18030",
+      "valid_frames": 2,
+      "issues": 0
+    },
+    "passive_capture_synthetic_test": {
+      "state": "confirmado",
+      "bytes": 33,
+      "valid_frames": 1,
+      "decoded_sensor_records": 1,
+      "receiver_closed": true,
+      "protocol_commands_sent": 0,
+      "last_percent": 100,
+      "real_usb_opened": false
+    },
+    "legacy_alias_selection_synthetic_test": {
+      "aliases": 6,
+      "selected_index": 6,
+      "selected_mi": 4,
+      "correct_object": true,
+      "real_metadata_ioctls_executed": 0
+    },
+    "support_bundle_synthetic_test": true,
+    "sn_query_synthetic_test": {
+      "state": "desconocido",
+      "rx_bytes": 132,
+      "tx_bytes": 112,
+      "queries_sent": 4,
+      "rows_with_serial": 4,
+      "identity_confirmed": false,
+      "ui_rows": 4,
+      "configuration_writes": 0,
+      "factory_commands": 0,
+      "receiver_closed": true,
+      "last_percent": 100,
+      "support_bundle": true,
+      "real_usb_opened": false
+    },
+    "hms_probe_synthetic_test": {
+      "state": "desconocido",
+      "rx_bytes": 91,
+      "tx_bytes": 14,
+      "requests_sent": 1,
+      "complete_reference_cycles": 3,
+      "distinct_records": 2,
+      "ui_rows": 2,
+      "health": "desconocido",
+      "calibration": "desconocido",
+      "reset_all_commands": 0,
+      "receiver_closed": true,
+      "last_percent": 100,
+      "support_bundle": true,
+      "real_usb_opened": false
+    }
+  },
+  "provided_log_corpus": {
+    "counts": {
+      "files": 89,
+      "valid_frames": 734,
+      "frame_issues": 0,
+      "historical_sensor_labels": 184,
+      "labeled_cmd": 367,
+      "labeled_ack": 367,
+      "sn_query_requests": 188,
+      "sn_queries_byte_matched": 188
+    },
+    "encodings": {
+      "utf-8-sig": 8,
+      "gb18030": 81
+    },
+    "association_counts": {
+      "cabeceras_correlacionadas_resultado_desconocido": 175,
+      "echo_no_confirma_respuesta": 4,
+      "asociacion_del_registro_sin_correlacion_de_cabeceras": 188
+    },
+    "perception_records": {
+      "records": 188,
+      "decoded": 184,
+      "selector_agreements": 188,
+      "label_matches": 184,
+      "unknown_layout_or_invalid_serial": 4
+    },
+    "distinct_labeled_ack": 150,
+    "hardware_tested": false,
+    "usb_operations": 0
+  },
+  "loopback_probe_worker": {
+    "state": "error",
+    "detail": "No se pudo verificar la conexión TCP/TLS en el plazo solicitado; no prueba que el servidor esté apagado.",
+    "source": "Sondeo solicitado por el usuario"
+  },
+  "provided_hms_corpus": {
+    "files": 3,
+    "captures": [
+      {
+        "bytes": 13565,
+        "valid_frames": 259,
+        "crc_issues": 0,
+        "family_counts": {
+          "21/06": 41,
+          "21/08": 53
+        },
+        "opaque_records": 0,
+        "reference_vision_codes": 4,
+        "health": "desconocido",
+        "activity": "desconocido"
+      },
+      {
+        "bytes": 13824,
+        "valid_frames": 259,
+        "crc_issues": 0,
+        "family_counts": {
+          "21/06": 40,
+          "21/08": 53
+        },
+        "opaque_records": 1,
+        "reference_vision_codes": 4,
+        "health": "desconocido",
+        "activity": "desconocido"
+      },
+      {
+        "bytes": 3728,
+        "valid_frames": 72,
+        "crc_issues": 0,
+        "family_counts": {
+          "21/06": 11,
+          "21/08": 15
+        },
+        "opaque_records": 0,
+        "reference_vision_codes": 4,
+        "health": "desconocido",
+        "activity": "desconocido"
+      }
+    ],
+    "real_usb_operations": 0
+  },
+  "libusb0_backend_cargado": true,
+  "windows_metadata_api_loaded": true,
+  "windows_parent_api_loaded": true,
+  "windows_parent_synthetic_test": {
+    "product": "Mini 4 Pro-SYNTHETIC",
+    "metadata_only": true,
+    "real_pnp_queries": 0
+  }
+}

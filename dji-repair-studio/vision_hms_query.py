@@ -67,7 +67,7 @@ def probe_hms(destination,firmware_declared,cancelled=lambda:False,progress=lamb
                     rejected=False
                     for frame in decoder.feed(chunk):
                         valid_frames+=1
-                        if frame[9:11]==b'\x21\x06':
+                        if frame[9]==0x21 and frame[10] in (6,8):
                             if frame[5]==0x0a:tracker.observe(frame)
                             else:foreign+=1
                         if (frame[4:6]==b'\x1d\x0a' and frame[9:11]==b'\x21\x05'

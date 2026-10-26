@@ -1,6 +1,6 @@
-# Investigación de DLL y registros · DJI REPAIR Studio 1.4.0
+# Investigación de DLL y registros · DJI REPAIR Studio 1.5.0
 
-**Estado actual 1.4.0:** recepción pasiva y dos lecturas SN del usuario reanalizadas;
+**Estado hasta 1.4.0:** recepción pasiva y dos lecturas SN del usuario reanalizadas;
 cuatro SN estables. Se añade lectura HMS experimental, con interpretación específica
 de alarmas Mini 4 Pro todavía pendiente. Las restricciones descritas abajo reflejan
 las etapas de investigación anteriores; la última sección recoge los cambios actuales.
@@ -288,3 +288,35 @@ publicación después de cerrar USB es desconocido; no se garantiza desuscripci�
 Las dos capturas SN del usuario contienen cuatro series estables, pero ningún
 21/06; no validan HMS. Su prueba física y la clasificación de códigos siguen
 pendientes. Ningún original o identificador real de unidad se publica.
+
+## Corrección de la omisión 21/08 · revisión 1.5.0
+
+La revisión ampliada del BIN Mini4Pro-HMS-20261026-152835.bin encontró 72 tramas
+válidas y 15 mensajes 21/08 no procesados en 1.4.0. Se volvieron a examinar los dos
+ZIP anteriores: cada BIN contiene 53 de esos mensajes. La limitación era del lector,
+no ausencia de esos registros en la aeronave. Se mantiene la validación CRC completa.
+
+En total, 121 mensajes cumplen una cabecera de cuatro bytes: versión 0, ciclo,
+índice/fin y contador. Cada registro lleva dos bytes de envoltura y su longitud
+exacta de cuerpo. Los 234 tag0/longitud20 comparten primer uint32 LE compatible
+con identificadores de la tabla HMS pública; un registro tag1/longitud13 no se
+interpreta como código. No se extrapolan significados para los demás campos.
+El cierre bit7 se usa como estructura observada, no como validación de salud.
+
+En las tres capturas aparecen identificadores 1A510380/382/384/385, descritos en
+OSDK como calibración de visión inferior/posterior/izquierda/derecha. Los cuerpos
+contienen más campos: su presencia no demuestra estado activo, vigente o retenido.
+Los índices, niveles, componentes y tiempos de 21/08 permanecen sin interpretar.
+La equivalencia de OSDK tampoco se generaliza como mapa Mini 4 Pro validado.
+
+El nuevo módulo propio vision_hms_extended.py valida TLV y conserva metadatos
+completos; no colapsa variantes del mismo código con cuerpos distintos. HmsTracker
+separa también por familia para evitar completar un ciclo con 21/06 y 21/08 mezclados.
+La interfaz presenta referencias calificadas y una columna de actividad desconocida.
+La recepción física usa la misma petición, sin comandos adicionales.
+
+262 pruebas de aplicación/interfaz. El EXE bajo Wine prueba ambos formatos con
+fixtures sintéticos y reanaliza las tres capturas privadas: 259/259/72 tramas y
+53/53/15 mensajes extendidos, con cuatro códigos de referencia de visión en cada
+archivo. Se publican solo recuentos. Es análisis offline; no una nueva prueba física,
+validación de actividad de alarmas o confirmación de necesidad de calibración.

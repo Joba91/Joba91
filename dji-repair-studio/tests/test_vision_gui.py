@@ -105,7 +105,7 @@ class VisionGuiTests(unittest.TestCase):
             self.assertEqual(z.read(dest.name),frame)
             saved=json.loads(z.read('DJI-REPAIR-informe.json'))
             self.assertEqual(saved['vision']['capture']['usb_capture']['protocol_commands_sent'],0)
-            self.assertEqual(saved['version'],'1.4.0')
+            self.assertEqual(saved['version'],'1.5.0')
     def test_failed_open_still_creates_zip_with_the_complete_error_report(self):
         from vision_usb_passive import capture_passive,UsbOpeningError
         from zipfile import ZipFile
@@ -242,6 +242,14 @@ class VisionGuiTests(unittest.TestCase):
         self.assertEqual(self.app.report['resultado']['estado'],'desconocido')
         self.assertEqual(self.app.vision.hms_records.get_children(),())
         self.assertIn('0 mensajes',self.app.vision.hms_summary.get());self.assertTrue(dest.with_suffix('.zip').is_file())
+    def test_extended_hms_reference_is_visible_without_active_fault_or_severity_claim(self):
+        from test_hms_extended import ext,ext_record
+        self.hms_probe([ext(records=[ext_record()])])
+        view=self.app.vision;row=view.hms_records.item(view.hms_records.get_children()[0])
+        self.assertEqual(row['text'],'0x1A510380')
+        self.assertEqual(row['values'][1:3],['—','—'])
+        self.assertIn('Referencia SDK:',row['values'][4]);self.assertEqual(row['values'][5:7],['21/08','desconocido'])
+        self.assertEqual(view.reports['diagnostic']['device_health'],'desconocido')
     def test_failed_hms_probe_clears_old_rows_and_keeps_uncertain_tx(self):
         from test_hms import hms,record
         from zipfile import ZipFile
