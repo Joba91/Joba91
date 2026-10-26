@@ -65,6 +65,30 @@ def main():
             synthetic_bundle=write_support_bundle(root/'passive.bin',{'test_data':'synthetic','usb_capture':passive})
             with ZipFile(synthetic_bundle) as z:
                 bundle_ok=z.testzip() is None and z.read('passive.bin')==synthetic_frame and json.loads(z.read('DJI-REPAIR-informe.json'))['test_data']=='synthetic'
+            from vision_sensor_query import query_sensor_serials,sn_request
+            sn_clock=SyntheticClock()
+            class SyntheticSnReceiver:
+                evidence={'synthetic':True,'no_usb_opened':True}
+                closed=False;timeouts=0
+                def __init__(self):self.tx_audit=[];self.pending=[]
+                def read(self):
+                    sn_clock.value+=.2
+                    if self.pending:return self.pending.pop(0)
+                    self.timeouts+=1;return b''
+                def send_sn_query(self,selector,sequence):
+                    request=sn_request(selector,sequence)
+                    self.tx_audit.append({'selector':selector,'sequence':sequence,'hex':request.hex(' '),
+                        'requested_bytes':28,'transferred_bytes':28,'status':'transferred'})
+                    body=bytearray(synthetic_sensor);body[3]=selector
+                    self.pending.append(packet(0x12,0x2a,900,0x24,0x26,body,flags=0))
+                def close(self):self.closed=True
+            sn_receiver=SyntheticSnReceiver();sn_progress=[]
+            sn=query_sensor_serials(root/'sn.bin','01.00.1100',transport_factory=lambda:sn_receiver,
+                clock=sn_clock,sequence_seed=10,progress=sn_progress.append)
+            app.vision.apply_report('identity',sn)
+            sn_bundle=write_support_bundle(root/'sn.bin',{'test_data':'synthetic','vision':{'identity':sn}})
+            with ZipFile(sn_bundle) as z:
+                sn_bundle_ok=z.testzip() is None and len(json.loads(z.read('DJI-REPAIR-informe.json'))['vision']['identity']['tx_audit'])==4
             vision_report={'test_data':'synthetic; not the user calibration package',
                 'inventory_files':inventory['file_count'],'md5_state':inventory['integrity']['state'],
                 'compatibility':LocalCalibrationProvider().compatibility(inventory,None).state,
@@ -80,7 +104,14 @@ def main():
                     'last_percent':passive_progress[-1]['percent'],'real_usb_opened':False},
                 'legacy_alias_selection_synthetic_test':{'aliases':6,'selected_index':selection['selected_alias_index'],
                     'selected_mi':selection['selected_mi'],'correct_object':selected is aliases[-1],
-                    'real_metadata_ioctls_executed':0},'support_bundle_synthetic_test':bundle_ok}
+                    'real_metadata_ioctls_executed':0},'support_bundle_synthetic_test':bundle_ok,
+                'sn_query_synthetic_test':{'state':sn['state'],'rx_bytes':sn['received_bytes'],
+                    'tx_bytes':sn['bulk_out_bytes_confirmed'],'queries_sent':sn['protocol_commands_sent'],
+                    'rows_with_serial':sum(bool(q['serials_observed']) for q in sn['queries']),
+                    'identity_confirmed':sn['current_device_confirmed'],'ui_rows':len(app.vision.current_sensor_records.get_children()),
+                    'configuration_writes':sn['device_configuration_writes'],'factory_commands':sn['factory_commands_sent'],
+                    'receiver_closed':sn_receiver.closed,'last_percent':sn_progress[-1]['percent'],
+                    'support_bundle':sn_bundle_ok,'real_usb_opened':False}}
         report = {
             'interfaz': app.title(),
             'ventanas_principales': 1 + sum(isinstance(w, tk.Toplevel) for w in app.winfo_children()),
@@ -107,6 +138,10 @@ def main():
                 complete=complete and result['valid_frames']<=result['preview_limit']
                 for frame in result['frames_preview']:
                     if frame.get('record_label')=='ACK':ack_fingerprints.add(frame['frame_sha256'])
+                    if (frame.get('record_label'),frame['command_set_raw'],frame['command_id_raw'])==('CMD','24','26'):
+                        counts['sn_query_requests']+=1
+                        if any(hashlib.sha256(sn_request(s,frame['sequence_raw'])).hexdigest()==frame['frame_sha256'] for s in (4,8,64,128)):
+                            counts['sn_queries_byte_matched']+=1
             report['provided_log_corpus']={'counts':dict(counts),'encodings':dict(encodings),
                 'association_counts':dict(associations),'perception_records':dict(perception),
                 'distinct_labeled_ack':len(ack_fingerprints) if complete else None,

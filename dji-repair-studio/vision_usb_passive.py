@@ -129,6 +129,7 @@ class PassiveVisionUsbTransport:
             if interface.bNumEndpoints!=2 or signature!=[(4,2,512),(0x85,2,512)]:
                 raise RuntimeError('Los endpoints de la interfaz 4 no coinciden con OUT 04 / IN 85, bulk de 512 bytes.')
             self.ep_in=next(e for e in endpoints if e.bEndpointAddress==0x85)
+            self.profile_interface=interface
             self._stage='claim_interface_4'
             self.util.claim_interface(self.device,4);self.claimed=True
             self.evidence={'usb_product_family_reported':'Mini 4 Pro','vid':'2ca3','pid':'0020',

@@ -27,11 +27,11 @@ class CalibrationProvider(Protocol):
 class UnavailableIdentification:
     def identify(self):
         return Evidence('desconocido',
-            'SN de registros históricos: conversión disponible en Analizar captura. '
-            'Capturar USB pasivo recibe tráfico sin peticiones de servicio. '
-            'La consulta activa de sensores sigue pendiente de validar en modo normal para este firmware.',
+            'Sin consulta SN en esta sesión. Usa Consultar SN visión (prueba) con firmware declarado 01.00.1100. '
+            'El funcionamiento y correlación en modo normal son experimentales; no confirma salud.',
             'Estado de implementación; no se contactó un dron',
-            {'usb_enabled': False, 'passive_capture_available':True, 'active_sensor_query_enabled':False, 'write_enabled': False})
+            {'usb_enabled': False, 'passive_capture_available':True, 'active_sensor_query_enabled':True,
+             'active_sensor_query_validated':False,'calibration_write_enabled':False})
 
 class LocalCalibrationProvider:
     def candidates(self, inventory):

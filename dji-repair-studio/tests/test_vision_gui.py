@@ -7,7 +7,7 @@ import tkinter as tk
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from studio_app import StudioApp
+from studio_app import StudioApp,SN_ACTION
 from test_vision import USER_FRAME
 
 @unittest.skipUnless(os.environ.get('DISPLAY') or os.name=='nt','Requires a graphical display')
@@ -105,7 +105,7 @@ class VisionGuiTests(unittest.TestCase):
             self.assertEqual(z.read(dest.name),frame)
             saved=json.loads(z.read('DJI-REPAIR-informe.json'))
             self.assertEqual(saved['vision']['capture']['usb_capture']['protocol_commands_sent'],0)
-            self.assertEqual(saved['version'],'1.2.6')
+            self.assertEqual(saved['version'],'1.3.0')
     def test_failed_open_still_creates_zip_with_the_complete_error_report(self):
         from vision_usb_passive import capture_passive,UsbOpeningError
         from zipfile import ZipFile
@@ -132,7 +132,7 @@ class VisionGuiTests(unittest.TestCase):
     def test_mini4_active_operations_never_open_transport(self):
         self.app.connection_text.set('consulta_completada')
         self.app.model.set('Mini 4 Pro')
-        self.assertIn('consulta activa no habilitada',self.app.connection_text.get())
+        self.assertIn('prueba de consulta SN disponibles',self.app.connection_text.get())
         self.assertTrue(all(str(b['state'])=='disabled' for b in self.app.operation_buttons[:11]))
         self.assertTrue(all(str(b['state'])=='normal' for b in self.app.operation_buttons[-6:]))
         with patch('studio_app.messagebox.showinfo'),patch('studio_app.backend.open_serial_port') as device:
@@ -141,11 +141,69 @@ class VisionGuiTests(unittest.TestCase):
             device.assert_not_called()
         self.assertFalse(self.app.running)
     def test_unavailable_identity_is_not_simulated_success(self):
-        with patch('studio_app.backend.open_serial_port') as device:
-            self.app.dispatch('Identificación visión');self.wait_idle()
-        device.assert_not_called()
+        from vision_interfaces import UnavailableIdentification
+        data=UnavailableIdentification().identify().to_dict()
+        self.assertEqual(data['state'],'desconocido');self.assertFalse(data['data']['usb_enabled'])
+        self.assertTrue(data['data']['active_sensor_query_enabled'])
+        self.assertFalse(data['data']['active_sensor_query_validated'])
+    def test_sn_query_requires_firmware_before_file_dialog_or_usb(self):
+        with patch('studio_app.messagebox.showerror') as error,patch('studio_app.query_sensor_serials') as probe,patch('studio_app.filedialog.asksaveasfilename') as save:
+            self.app.dispatch(SN_ACTION)
+        error.assert_called_once();probe.assert_not_called();save.assert_not_called()
+        self.assertFalse(self.app.running)
+    def test_sn_query_cancelled_file_dialog_never_opens_usb(self):
+        self.app.vision.firmware.set('01.00.1100')
+        with patch('studio_app.query_sensor_serials') as probe,patch('studio_app.filedialog.asksaveasfilename',return_value=''):
+            self.app.dispatch(SN_ACTION)
+        probe.assert_not_called();self.assertFalse(self.app.running)
+    def sn_probe(self,respond=True,send_failure=False):
+        from test_sensor_query import Receiver,Clock,response
+        from vision_sensor_query import query_sensor_serials
+        clock=Clock()
+        def on_send(selector,sequence):
+            if send_failure:raise OSError('synthetic write disconnected')
+            return [response(selector,900)] if respond else []
+        receiver=Receiver(clock,on_send)
+        destination=self.root/('failed-sn.bin' if send_failure else 'new-sn.bin')
+        self.app.vision.firmware.set('01.00.1100')
+        def run(*args,**kwargs):
+            return query_sensor_serials(*args,**kwargs,transport_factory=lambda:receiver,clock=clock,sequence_seed=10)
+        with patch('studio_app.query_sensor_serials',side_effect=run),patch('studio_app.filedialog.asksaveasfilename',return_value=str(destination)),patch('studio_app.backend.open_serial_port') as legacy:
+            self.app.dispatch(SN_ACTION);self.wait_idle()
+        legacy.assert_not_called();self.assertTrue(receiver.closed)
+        return destination
+    def test_sn_probe_shows_observations_and_bundles_rx_tx_without_claiming_identity(self):
+        from zipfile import ZipFile
+        destination=self.sn_probe()
+        view=self.app.vision;data=view.reports['identity']
         self.assertEqual(self.app.report['resultado']['estado'],'desconocido')
-        self.assertFalse(self.app.vision.reports['identity']['data']['usb_enabled'])
+        self.assertEqual(data['protocol_commands_sent'],4);self.assertFalse(data['current_device_confirmed'])
+        self.assertEqual(len(view.current_sensor_records.get_children()),4)
+        self.assertIn('4/4 selectores con SN observado',view.current_sensor_summary.get())
+        self.assertEqual(view.tabs.select(),str(view.current_sensor_page))
+        with ZipFile(destination.with_suffix('.zip')) as z:
+            self.assertEqual(len(z.read(destination.name)),132)
+            saved=json.loads(z.read('DJI-REPAIR-informe.json'))
+            self.assertEqual(saved['vision']['identity']['bulk_out_bytes_confirmed'],112)
+            self.assertEqual(len(saved['vision']['identity']['tx_audit']),4)
+            self.assertEqual(saved['firmware_declarado'],'01.00.1100')
+        self.assertEqual(self.app.progress_value.get(),100)
+        self.assertFalse(any(isinstance(w,tk.Toplevel) for w in self.app.winfo_children()))
+    def test_sn_probe_without_responses_is_unknown_and_keeps_zip(self):
+        path=self.sn_probe(respond=False)
+        self.assertEqual(self.app.report['resultado']['estado'],'desconocido')
+        self.assertEqual(len(self.app.vision.current_sensor_records.get_children()),4)
+        self.assertIn('0/4 selectores con SN observado',self.app.vision.current_sensor_summary.get())
+        self.assertTrue(path.with_suffix('.zip').is_file())
+    def test_failed_sn_probe_replaces_previous_rows_and_bundles_error(self):
+        from zipfile import ZipFile
+        self.sn_probe();path=self.sn_probe(send_failure=True)
+        self.assertEqual(self.app.report['resultado']['estado'],'error')
+        self.assertEqual(len(self.app.vision.current_sensor_records.get_children()),1)
+        with ZipFile(path.with_suffix('.zip')) as z:
+            report=json.loads(z.read('DJI-REPAIR-informe.json'))
+        self.assertTrue(report['vision']['identity']['bulk_out_delivery_unknown'])
+        self.assertEqual(report['vision']['identity']['protocol_commands_attempted'],1)
     def test_server_only_runs_on_requested_action(self):
         self.app.vision.url.set('https://authorized.example:8443')
         with patch('studio_app.AuthorizedServiceProvider.probe',return_value={'state':'error','detail':'Test server unavailable','source':'Test mock'}) as probe:

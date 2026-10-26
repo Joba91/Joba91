@@ -11,8 +11,8 @@ class VisionView(ttk.Frame):
         self.format=tk.StringVar(value='auto');self.source=tk.StringVar(value='Ningún paquete importado')
         self.firmware=tk.StringVar();self.capture_seconds=tk.StringVar(value='5')
         self.columnconfigure(0,weight=1);self.rowconfigure(4,weight=1)
-        ttk.Label(self,text='Mini 4 Pro · archivos y recepción USB pasiva',font=('Segoe UI',12,'bold')).grid(row=0,column=0,sticky='w')
-        ttk.Label(self,text='USB pasivo: cierra otros clientes USB y conserva modo normal y controladores. Recibe sin peticiones de servicio ni DLL DJI. Consulta activa y calibración pendientes.',wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
+        ttk.Label(self,text='Mini 4 Pro · visión e identificación experimental',font=('Segoe UI',12,'bold')).grid(row=0,column=0,sticky='w')
+        ttk.Label(self,text='Cierra otros clientes USB y conserva modo normal. Consultar SN envía hasta cuatro peticiones de identificación: funcionamiento pendiente de validar en firmware 01.00.1100. No inicia fábrica ni calibración.',wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
         self.states=ttk.Treeview(self,columns=('state','detail'),show='tree headings',height=6)
         self.states.heading('#0',text='Comprobación');self.states.column('#0',width=130,minwidth=110,stretch=False)
         self.states.heading('state',text='Estado');self.states.column('state',width=105,stretch=False)
@@ -28,11 +28,23 @@ class VisionView(ttk.Frame):
         self.controls=[(url_entry,'normal'),(timeout_entry,'readonly'),(format_entry,'readonly')]
         ttk.Label(form,text='Firmware declarado (DJI Fly)').grid(row=2,column=0,sticky='w',pady=5)
         firmware_entry=ttk.Entry(form,textvariable=self.firmware,width=16);firmware_entry.grid(row=2,column=1,sticky='w',padx=8)
-        ttk.Label(form,text='Recepción (s)').grid(row=2,column=2)
+        ttk.Label(form,text='Captura pasiva (s)').grid(row=2,column=2)
         capture_entry=ttk.Combobox(form,textvariable=self.capture_seconds,values=('5','10'),state='readonly',width=5);capture_entry.grid(row=2,column=3)
         self.controls.extend([(firmware_entry,'normal'),(capture_entry,'readonly')])
         tabs=ttk.Notebook(self);tabs.grid(row=4,column=0,sticky='nsew',pady=5)
         self.tabs=tabs
+        current=ttk.Frame(tabs);current.columnconfigure(0,weight=1);current.rowconfigure(1,weight=1)
+        tabs.add(current,text='Consulta SN (prueba)');self.current_sensor_page=current
+        self.current_sensor_summary=tk.StringVar(value='Usa Consultar SN visión (prueba) en el lateral; guarda un .bin nuevo para generar el ZIP de resultados.')
+        ttk.Label(current,textvariable=self.current_sensor_summary,wraplength=820).grid(row=0,column=0,sticky='w',pady=5)
+        self.current_sensor_records=ttk.Treeview(current,columns=('serial','status'),show='tree headings',height=4)
+        self.current_sensor_records.heading('#0',text='Selector / posición histórica');self.current_sensor_records.column('#0',width=240)
+        self.current_sensor_records.heading('serial',text='SN observado');self.current_sensor_records.column('serial',width=200)
+        self.current_sensor_records.heading('status',text='Resultado experimental');self.current_sensor_records.column('status',width=300)
+        self.current_sensor_records.grid(row=1,column=0,sticky='nsew')
+        scroll=ttk.Scrollbar(current,command=self.current_sensor_records.yview)
+        scroll.grid(row=1,column=1,sticky='ns');self.current_sensor_records.configure(yscrollcommand=scroll.set)
+        ttk.Label(current,text='Los SN son observaciones del tráfico recibido durante la prueba. Correlación, posición física e identidad no confirmadas. Ausencia de respuesta no implica avería. El porcentaje cuenta ventanas, no salud.',wraplength=820).grid(row=2,column=0,sticky='w',pady=5)
         files=ttk.Frame(tabs);files.columnconfigure(0,weight=1);files.rowconfigure(1,weight=1);tabs.add(files,text='Inventario local')
         ttk.Label(files,textvariable=self.source,wraplength=800).grid(row=0,column=0,sticky='w',pady=5)
         self.inventory=ttk.Treeview(files,columns=('size','digest','state'),show='tree headings')
@@ -55,11 +67,21 @@ class VisionView(ttk.Frame):
         detail=ttk.Frame(tabs);detail.columnconfigure(0,weight=1);detail.rowconfigure(0,weight=1);tabs.add(detail,text='Resultados y evidencia')
         self.details=tk.Text(detail,wrap='word',font=('Consolas',9),state='disabled');self.details.grid(row=0,column=0,sticky='nsew')
         scroll=ttk.Scrollbar(detail,command=self.details.yview);scroll.grid(row=0,column=1,sticky='ns');self.details.configure(yscrollcommand=scroll.set)
-        ttk.Label(self,text='Capturar USB pasivo crea un ZIP con captura e informe para compartir. Guardar informe exporta JSON. El servidor solo se consulta al solicitarlo; MD5 no acredita compatibilidad.',wraplength=850).grid(row=5,column=0,sticky='w',pady=5)
+        ttk.Label(self,text='Consultar SN y Capturar USB pasivo crean un ZIP local con recepción e informe. Comparte ese ZIP para revisar la prueba. Guardar informe exporta JSON.',wraplength=850).grid(row=5,column=0,sticky='w',pady=5)
         self.refresh_states()
 
     def apply_report(self,category,data):
         self.reports[category]=data
+        if category=='identity':
+            self.current_sensor_records.delete(*self.current_sensor_records.get_children())
+            rows=data.get('queries',[])
+            observed=sum(bool(q.get('serials_observed')) for q in rows)
+            summary=('Error: '+data['error']) if data.get('error') else 'Correlación e identidad sin confirmar.'
+            self.current_sensor_summary.set(f'{observed}/4 selectores con SN observado · '+summary)
+            for row in rows:
+                self.current_sensor_records.insert('', 'end',text=f"0x{row['selector']:02X} / {row.get('role_historical','desconocida')}",
+                    values=(', '.join(row.get('serials_observed',[])) or 'sin SN reconocido',row.get('observation_status',row.get('query_status','desconocido'))))
+            self.tabs.select(self.current_sensor_page)
         if category=='capture':
             live=data.get('origin')=='live_usb_passive'
             self.sensor_provenance.set('Recepción USB actual; la asignación de posiciones procede de registros históricos. No confirma salud, calibración ni respuesta a una consulta.' if live else

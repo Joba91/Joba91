@@ -18,14 +18,16 @@ from vision_interfaces import UnavailableIdentification, LocalCalibrationProvide
 from vision_services import AuthorizedServiceProvider, service_target
 from vision_usb_passive import capture_passive, DECLARED_FIRMWARE
 from vision_support_bundle import write_support_bundle
+from vision_sensor_query import query_sensor_serials
 from pathlib import Path
 
-VERSION = '1.2.6'
+VERSION = '1.3.0'
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
           'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Mini 5 Pro')
 PROFILE_CODES = {'Mavic 3':'WM260','Mavic 3 Cine':'WM260','Mavic 4 Pro':'MAVIC4PRO','Mini 5 Pro':'MT5MFND'}
 CALIBRATION_ACTIONS = ('JointCoarse','LinearHall','Entrar modo fabrica','Salir modo fabrica','Escuchar progreso (20 s)')
-VISION_ACTIONS = ('Importar carpeta visión','Importar ZIP visión','Analizar captura visión','Capturar USB pasivo','Comprobar servidor visión','Identificación visión')
+SN_ACTION='Consultar SN visión (prueba)'
+VISION_ACTIONS = ('Importar carpeta visión','Importar ZIP visión','Analizar captura visión','Capturar USB pasivo','Comprobar servidor visión',SN_ACTION)
 
 class ProgressState:
     """No time-based inference of motor/calibration completion."""
@@ -276,7 +278,7 @@ class StudioApp(tk.Tk):
         if action in ('Analizar','Generar','Convertir'):self.offline(action);return
         if self.model.get()=='Mini 4 Pro':
             self.select_page('Visión Mini 4 Pro')
-            messagebox.showinfo('Mini 4 Pro · consultas pendientes','En Visión Mini 4 Pro está disponible la recepción USB pasiva. Las consultas activas y calibraciones siguen sin validar.',parent=self)
+            messagebox.showinfo('Mini 4 Pro · visión','Usa Capturar USB pasivo o Consultar SN visión (prueba) en Visión Mini 4 Pro. La prueba SN no confirma salud. Calibración no habilitada.',parent=self)
             return
         try:
             po=self.settings();options=None
@@ -314,22 +316,24 @@ class StudioApp(tk.Tk):
             elif action=='Comprobar servidor visión':
                 snapshot['url']=self.vision.url.get().strip();service_target(snapshot['url'])
                 snapshot['timeout']=float(self.vision.timeout.get())
-            elif action=='Capturar USB pasivo':
+            elif action in ('Capturar USB pasivo',SN_ACTION):
                 snapshot['firmware']=self.vision.firmware.get().strip()
                 if snapshot['firmware']!=DECLARED_FIRMWARE:
                     raise ValueError('Escribe 01.00.1100 en Firmware declarado si es la versión que muestra DJI Fly para tu Mini 4 Pro.')
                 snapshot['seconds']=int(self.vision.capture_seconds.get())
+                prefix='Mini4Pro-SN' if action==SN_ACTION else 'Mini4Pro-USB'
                 snapshot['path']=filedialog.asksaveasfilename(parent=self,title='Guardar captura nueva (.bin); también se creará un ZIP con el informe',
-                    defaultextension='.bin',initialfile=time.strftime('Mini4Pro-USB-%Y%m%d-%H%M%S.bin'),
+                    defaultextension='.bin',initialfile=prefix+time.strftime('-%Y%m%d-%H%M%S.bin'),
                     filetypes=[('Captura binaria','*.bin')])
             if 'path' in snapshot and not snapshot['path']:return
         except ValueError as exc:messagebox.showerror('Configuración de visión',str(exc),parent=self);return
         self.running=True;self.stop.clear();self.progress_state.reset()
         self.report={'herramienta':'DJI REPAIR Studio','version':VERSION,'accion':action,'modelo_declarado':'Mini 4 Pro',
+                     'firmware_declarado':snapshot.get('firmware',''),
                      'fecha_unix':time.time(),'resultado':None,'paquetes':[],'progreso':[],'vision':dict(self.vision.reports)}
         self._set_busy(True,action!='Comprobar servidor visión')
         self.progress_bar.configure(mode='indeterminate');self.progress_value.set(0);self.progress_bar.start(12)
-        self.percent_text.set('—');self.progress_text.set('Recepción USB pasiva solicitada; sin peticiones de servicio' if action=='Capturar USB pasivo' else 'Procesando archivo o sondeo; sin consulta al dron')
+        self.percent_text.set('—');self.progress_text.set('Preparando prueba SN en modo normal' if action==SN_ACTION else 'Recepción USB pasiva solicitada; sin peticiones de servicio' if action=='Capturar USB pasivo' else 'Procesando archivo o sondeo; sin consulta al dron')
         self.status.set(action);self.append('>>> '+action)
         threading.Thread(target=self.vision_worker,args=(action,snapshot),daemon=True).start()
 
@@ -346,19 +350,31 @@ class StudioApp(tk.Tk):
             elif action=='Comprobar servidor visión':
                 data=AuthorizedServiceProvider(snapshot['url']).probe(snapshot['timeout']);category='server'
                 state=data['state'];detail=data['detail']
-            elif action=='Capturar USB pasivo':
-                receipt=capture_passive(snapshot['path'],snapshot['firmware'],snapshot['seconds'],
-                    cancelled=self.stop.is_set,progress=lambda e:self.events.put(('progress',e)))
+            elif action in ('Capturar USB pasivo',SN_ACTION):
+                if action==SN_ACTION:
+                    receipt=query_sensor_serials(snapshot['path'],snapshot['firmware'],
+                        cancelled=self.stop.is_set,progress=lambda e:self.events.put(('progress',e)))
+                else:
+                    receipt=capture_passive(snapshot['path'],snapshot['firmware'],snapshot['seconds'],
+                        cancelled=self.stop.is_set,progress=lambda e:self.events.put(('progress',e)))
                 try:data=analyze_capture(receipt['capture_path'],'binary')
                 except Exception as exc:
                     data={'state':'error','detail':f'Captura guardada; análisis de tramas incompleto: {exc}',
                         'frame_analysis_error':str(exc),'source':receipt['capture_path']}
-                data.update(origin='live_usb_passive',usb_capture=receipt,
-                    detail=data['detail'] if 'frame_analysis_error' in data else receipt['detail'],
-                    state='error' if 'frame_analysis_error' in data else receipt['state'])
+                analysis=data
+                analysis.pop('declared_historical_usb',None)
+                analysis.pop('initial_150_ack_claim',None)
+                if action==SN_ACTION:
+                    data={**receipt,'received_capture_analysis':analysis}
+                    if 'frame_analysis_error' in analysis:
+                        data.update(state='error',detail=analysis['detail'])
+                else:
+                    data.update(origin='live_usb_passive',usb_capture=receipt,
+                        detail=data['detail'] if 'frame_analysis_error' in data else receipt['detail'],
+                        state='error' if 'frame_analysis_error' in data else receipt['state'])
                 data.pop('declared_historical_usb',None)
                 data.pop('initial_150_ack_claim',None)
-                category='capture';state=data['state'];detail=data['detail']
+                category='identity' if action==SN_ACTION else 'capture';state=data['state'];detail=data['detail']
                 base_detail=detail
                 bundle_path=str(Path(receipt['capture_path']).with_suffix('.zip'))
                 data['support_bundle']={'state':'confirmado','path':bundle_path,
@@ -369,7 +385,7 @@ class StudioApp(tk.Tk):
                     bundle_report={'herramienta':'DJI REPAIR Studio','version':VERSION,'accion':action,
                         'modelo_declarado':'Mini 4 Pro','firmware_declarado':snapshot['firmware'],
                         'fecha_unix':time.time(),'resultado':{'estado':state,'detalle':detail},
-                        'vision':{'capture':data}}
+                        'vision':{category:data}}
                     write_support_bundle(receipt['capture_path'],bundle_report)
                 except Exception as exc:
                     data['support_bundle']={'state':'error','path':bundle_path,'detail':str(exc),'uploaded_automatically':False}
@@ -398,7 +414,7 @@ class StudioApp(tk.Tk):
 
     def model_changed(self,*args):
         self.sync_operation_buttons(self.running)
-        self.connection_text.set('Mini 4 Pro: USB pasivo disponible; consulta activa no habilitada' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
+        self.connection_text.set('Mini 4 Pro: recepción USB y prueba de consulta SN disponibles' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
         if self.model.get()=='Mini 4 Pro' and not self.running:self.select_page('Visión Mini 4 Pro')
 
     def worker(self,action,po,advanced=None):

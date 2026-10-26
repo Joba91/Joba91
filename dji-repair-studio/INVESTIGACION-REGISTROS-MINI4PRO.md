@@ -1,4 +1,8 @@
-# Investigación de DLL y registros · DJI REPAIR Studio 1.2.6
+# Investigación de DLL y registros · DJI REPAIR Studio 1.3.0
+
+**Estado actual 1.3.0:** recepción pasiva probada por el usuario y reanalizada;
+consulta SN experimental disponible. Las restricciones descritas abajo reflejan
+las etapas de investigación anteriores; la última sección recoge los cambios actuales.
 
 Se analizaron estáticamente los dos binarios recibidos y se contrastaron sus
 estructuras con los 89 registros anteriores. No se cargaron ni ejecutaron las DLL.
@@ -209,3 +213,35 @@ La consulta del padre y recepción bulk reales siguen pendientes de probar en el
 equipo del usuario. No se habilitan consultas activas ni calibración. Los informes
 locales pueden contener el producto con identificador de unidad; no se publican
 los adjuntos originales. Las rutas PnP se conservan solo como huellas SHA-256.
+
+## Consulta SN experimental y revisión 1.3.0
+
+El ZIP pasivo 1.2.6 aportado por el usuario contiene 6123 bytes y 104 tramas CRC
+válidas; se reanalizó y coincidió con el JSON. Acredita en ese informe selección
+MI04 y asociación al padre físico. No incluye mensajes 24/26 ni valida su consulta.
+
+Se examinó ahora el constructor V1Filter RVA 0x414a0: los siete bits del argumento
+se descomponen en filtros. SendCmdandAck combina el argumento 3 de GetPerceptionSN
+con 0x40. En la ruta analizada, la máscara 0x43 selecciona familia/contexto, sin
+exigir secuencia ni flags estándar de respuesta. Esto explica por qué no debe
+utilizarse el correlador DUML genérico para declarar identidad.
+
+El constructor propio sn_request reproduce exactamente las 188 tramas CMD de SN
+del corpus (47 por cada selector 04,08,40,80), incluyendo CRC y secuencia. Los tests
+conservan cuatro huellas de peticiones sin datos de unidad. El coordinador permite
+una petición por selector, ventanas seriales de tres segundos, recepción previa
+de 0,6 segundos, límite postapertura de 15 segundos/1 MiB/10000 lecturas, sin
+reintentos ni cambios de modo. No se exponen comandos arbitrarios.
+
+La nueva acción Consultar SN visión (prueba) habilita exclusivamente este ensayo
+en modo normal, con firmware declarado 01.00.1100 y perfil USB contrastado. No se
+da por validado su soporte en ese modo/firmware antes de probarlo. SN convertidos
+se muestran como observaciones, nunca como identidad/salud confirmada, incluso
+si coinciden las secuencias. Se registran también candidatos ambiguos, tráfico
+previo, selector ajeno, datos incompletos y entrega incierta tras fallo TX.
+No hay fallback a fábrica ni reproducción de otros comandos del flujo histórico.
+El ZIP automático contiene RX binario y JSON con auditoría TX.
+
+205 pruebas de aplicación/interfaz y arranque del EXE bajo Wine con USB simulado.
+La prueba física de la nueva consulta y su correlación siguen pendientes. No se
+habilitan diagnóstico de salud, descarga/instalación o calibración óptica.

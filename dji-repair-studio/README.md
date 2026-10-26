@@ -1,41 +1,41 @@
-# DJI REPAIR Studio 1.2.6
+# DJI REPAIR Studio 1.3.0
 
-Aplicación de una sola ventana con diagnóstico de archivos y recepción USB
-pasiva Mini 4 Pro. La captura recibe desde IN 85 de la interfaz 4 sin emitir
-peticiones de servicio. Perfil acotado a descriptores contrastados y firmware
-01.00.1100 declarado desde DJI Fly. No implementa consulta activa de sensores,
-calibración óptica activa, descarga de datos ni escritura. [Uso, arquitectura y bloqueos](VISION-MINI4PRO.md).
+Herramienta Windows de una sola ventana con recepción USB pasiva Mini 4 Pro,
+análisis de archivos y **consulta SN experimental** en modo normal. La consulta
+se limita a cuatro peticiones 24/26 reconstruidas de los registros, una por selector,
+sin reintentos ni comandos de fábrica, calibración, configuración o firmware.
+El funcionamiento en modo normal con firmware 01.00.1100 está pendiente de prueba.
+
+[Descarga y prueba](../downloads/LEEME.md) · [Uso y arquitectura](VISION-MINI4PRO.md) ·
+[Investigación](INVESTIGACION-REGISTROS-MINI4PRO.md)
+
+La selección valida el perfil USB y la asociación MI04/padre físico. El resultado
+muestra SN observados, sin declarar correlación, identidad o salud confirmadas.
+La tabla conserva por separado datos actuales experimentales e históricos.
+Cada prueba genera un ZIP local con RX binario y JSON con auditoría TX y errores.
+No sube archivos. No carga ni redistribuye DLL propietarias o credenciales DJI.
+No implementa diagnóstico de salud, descarga/instalación o calibración óptica.
 
 ## Desarrollo
 
-Python 3.13 con Tcl/Tk. En Windows, instala `requirements.txt` en un entorno virtual.
-Desde esta carpeta ejecuta `python launch.py` y `python -m unittest discover -s tests -v`.
-Para compilar el ejecutable independiente, ejecuta `build_windows.ps1` en Windows.
-No requiere las DLL propietarias DJI ni DJI Test.exe. Incluye la biblioteca de
-usuario libusb-win32 1.4.0.2 amd64 en native/, con procedencia, LGPL/GPL y fuente
-correspondiente. Windows prioriza libusb0 para el servicio libusb0_device existente;
-no instala ni reemplaza controladores. El informe registra errores por fase.
+Python 3.13 con Tcl/Tk. Instala `requirements.txt` en un entorno virtual y ejecuta
+`python launch.py`. Pruebas: `python -m unittest discover -s tests -v`.
+Compilación Windows: `build_windows.ps1`, PyInstaller onefile/windowed.
+Incluye libusb-win32 1.4.0.2 amd64 de usuario, verificado y sin modificar, con
+procedencia y fuente correspondiente. No instala o cambia controladores.
 
-En el entorno de desarrollo preparado en la nube, las dependencias verificadas están
-en `/workspace/DJI-REPAIR-Studio/vendor`. Las pruebas sin interfaz pueden ejecutarse
-con `PYTHONPATH=.:/workspace/DJI-REPAIR-Studio/vendor python3.13 -m unittest discover -s tests -v`.
-Para ejecutar también las pruebas gráficas hace falta una pantalla X local/virtual;
-estas pruebas se omiten expresamente si no hay pantalla. La compilación Windows
-se verificó bajo Wine; no equivale a validación en Windows nativo o con un dron real.
+En el entorno cloud preparado, las dependencias están en
+`/workspace/DJI-REPAIR-Studio/vendor`: usa
+`PYTHONPATH=.:/workspace/DJI-REPAIR-Studio/vendor python3.13 -m unittest discover -s tests -v`.
+Las pruebas gráficas requieren DISPLAY o Windows. El EXE se valida bajo Wine con
+receptores simulados y una sola raíz Tk. No equivale a Windows nativo o prueba
+física de consultas activas. 205 pruebas de aplicación/interfaz y 9 de empaquetado.
 
-Código base GPLv3: ver LICENSE-GPL-3.txt y avisos en archivos originales. El ZIP
-de distribución incluye además licencias de las bibliotecas de ejecución.
+Se contrastaron las peticiones contra 188 tramas históricas completas. El lector
+interpreta 89 registros/734 tramas y convierte 184 SN coincidentes con sus etiquetas;
+cuatro bloques siguen desconocidos. El BIN pasivo 1.2.6 del usuario se reanalizó:
+6123 bytes, 104 tramas válidas, sin SN 24/26. Eso acredita recepción, no consulta activa.
+No se publican adjuntos ni identificadores reales de unidad.
 
-El lector histórico se contrastó con 89 registros reales recibidos: 734 tramas,
-150 ACK distintos. El decodificador propio de sensores recupera 184 SN desde
-payloads, con 184 coincidencias históricas; cuatro bloques inválidos siguen desconocidos. [Investigación y límites](INVESTIGACION-REGISTROS-MINI4PRO.md).
-
-En libusb0, la selección identifica una MI04 única por los HardwareID del
-controlador local de Windows; no interpreta varias entradas como varias
-aeronaves ni elige la primera. Capturar USB pasivo crea automáticamente un ZIP
-con el .bin y el JSON, incluso si la apertura falla. Pruebas con seis alias
-simulados. El informe de 1.2.5 confirma selección y configuración, pero no lectura bulk.
-1.2.6 consulta antes de la apertura exclusiva el padre físico exacto de MI04 por
-metadatos PnP de Windows. Un nombre de interfaz ausente/genérico solo se admite
-con producto Mini 4 Pro en ese padre y VID/PID correcto. Los nombres observados
-y errores quedan en el informe. Consulta del padre y recepción física pendientes.
+Código base GPLv3: LICENSE-GPL-3.txt y avisos de los archivos originales.
+El ZIP incluye licencias de dependencias y fuentes de libusb-win32.

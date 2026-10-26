@@ -1,43 +1,44 @@
-# DJI REPAIR Studio 1.2.6
+# DJI REPAIR Studio 1.3.0
 
-[Descargar Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.2.6.zip)
+[Descargar Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.3.0.zip)
 
-Extrae el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.2.6.exe**.
+Extrae el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.3.0.exe**.
 
-## Identificación del producto Mini 4 Pro
+## Prueba de identificación de sensores
 
-El informe de 1.2.5 demuestra que MI04 se seleccionó y se leyó la configuración,
-pero se detuvo antes de recibir datos porque el nombre de la interfaz no pasó
-la comprobación. No guardaba el valor recibido. UsbTreeView sigue indicando
-Mini 4 Pro en el producto del dispositivo físico.
+1. Conecta el Mini 4 Pro encendido en modo normal. Cierra DJI Assistant y otros
+   clientes USB del PC; conserva el controlador existente.
+2. En **Visión Mini 4 Pro**, escribe **01.00.1100** en Firmware declarado,
+   si coincide con la versión de aeronave en DJI Fly.
+3. Pulsa **Consultar SN visión (prueba)** y guarda un **nuevo** `.bin`.
+4. Espera las cuatro ventanas de consulta y comparte el **ZIP Mini4Pro-SN-....zip**
+   creado junto al BIN. Contiene recepción e informe con peticiones y errores.
 
-1.2.6 consulta el padre físico asociado exactamente al alias MI04. Un descriptor
-hijo genérico o ausente solo se admite si ese padre acredita VID/PID 2CA3:0020
-y producto Mini 4 Pro. La consulta de metadatos se cierra antes de la apertura
-exclusiva USB. Otro modelo explícito o una asociación inválida bloquean la recepción.
-El informe conserva ambas lecturas y los errores precisos. No cambia drivers.
+Esta acción sí envía consultas SN, hasta cuatro, una por selector. Las peticiones
+coinciden byte por byte con 188 consultas históricas. No envía comandos de fábrica,
+calibración, configuración o firmware. Si falla un envío, no lo repite ni cambia
+el modo de la aeronave. La recepción está limitada a 15 segundos después de abrir
+USB o 1 MiB; una llamada USB en curso puede terminar después del límite.
 
-## Prueba
+**Es una prueba experimental: falta validar la consulta en modo normal con tu firmware.**
+Los SN aparecen como **observados**, sin afirmar correlación, identidad o salud
+confirmadas. Sin respuesta no significa avería. 100 % indica cuatro ventanas
+completadas, no diagnóstico o calibración. Detener conserva el resultado parcial.
+Los nombres de posición son etiquetas históricas, no ubicación física verificada.
 
-1. Conecta el Mini 4 Pro en modo normal y cierra otros clientes USB del PC.
-2. Abre **Visión Mini 4 Pro** y escribe **01.00.1100** en Firmware declarado,
-   si esa es la versión de tu aeronave en DJI Fly.
-3. Pulsa **Capturar USB pasivo**, elige un archivo **nuevo** `.bin` y espera.
-4. Comparte el **ZIP Mini4Pro-USB-....zip** creado junto al `.bin`.
-   Incluye captura e informe, incluso si no recibió datos o falló la apertura.
+La recepción pasiva anterior sigue disponible y conserva su funcionamiento sin
+peticiones de servicio. Ambas acciones generan ZIP incluso con fallo o cero bytes.
+No sobrescriben ni suben archivos. Revisa el informe antes de publicarlo: puede
+contener series. Guardar informe permite exportar el JSON manualmente.
 
-La recepción lee IN 85 de MI04 durante 5/10 segundos o hasta 1 MiB. El porcentaje
-mide tiempo. Cero bytes no significa avería. No consulta activamente sensores ni
-inicia calibración, fábrica, escritura o cambios de firmware/controladores.
-No se suben archivos automáticamente. El informe local puede incluir el producto
-con identificador de unidad; revísalo antes de publicarlo.
+205 pruebas de aplicación/interfaz y 9 de empaquetado aprobadas. El EXE arranca
+bajo Wine y prueba consultas, tabla y ZIP con cuatro respuestas sintéticas.
+No se ha realizado aquí la consulta activa física ni prueba en Windows nativo.
+La captura pasiva 1.2.6 recibida del usuario se reanalizó: 6123 bytes y 104 tramas
+válidas; no acredita las nuevas consultas SN. No se habilita calibración óptica.
 
+[Uso y arquitectura](../dji-repair-studio/VISION-MINI4PRO.md) ·
 [Investigación](../dji-repair-studio/INVESTIGACION-REGISTROS-MINI4PRO.md) ·
-[Uso y arquitectura](../dji-repair-studio/VISION-MINI4PRO.md) · [Código](../dji-repair-studio)
-
-Validación: **170 pruebas de aplicación y 9 de empaquetado** aprobadas; arranque
-del EXE y carga de APIs bajo Wine, con asociación de padre y buffers sintéticos.
-La consulta del padre y recepción físicas siguen pendientes. No se declara prueba
-en Windows nativo o con un dron. Incluye fuentes, licencias y fuente correspondiente
-de libusb-win32, sin instaladores ni drivers binarios. Los adjuntos originales e
-identificadores reales de unidad no se publican. Consulta **SHA256SUMS.txt**.
+[Código](../dji-repair-studio). Fuentes y licencias incluidas, sin DLL oficiales DJI,
+credenciales, capturas originales, instaladores o drivers binarios.
+Consulta **SHA256SUMS.txt** para verificar la descarga.
