@@ -1,0 +1,137 @@
+{
+  "version": "1.2.6",
+  "application_tests": {
+    "passed": 170,
+    "failed": 0,
+    "skipped": 0,
+    "includes_virtual_display_ui": true
+  },
+  "packaging_tests": {
+    "passed": 9,
+    "failed": 0
+  },
+  "wine_10_exe_smoke_test": {
+    "interfaz": "DJI REPAIR Studio 1.2.6",
+    "ventanas_principales": 1,
+    "generador": "55 0d 04 33 0a 04 00 00 40 00 01 e6 2a",
+    "analizador_payload": "01",
+    "python": "3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:20:25) [MSC v.1942 64 bit (AMD64)]",
+    "usb_backend_cargado": true,
+    "operaciones_usb_ejecutadas": 0,
+    "vision": {
+      "test_data": "synthetic; not the user calibration package",
+      "inventory_files": 2,
+      "md5_state": "confirmado",
+      "compatibility": "desconocido",
+      "identity": "desconocido",
+      "write_enabled": false,
+      "usb_enabled": false,
+      "framing_valid": true,
+      "historical_reader": {
+        "format": "djilog",
+        "encoding": "gb18030",
+        "valid_frames": 2,
+        "issues": 0
+      },
+      "passive_capture_synthetic_test": {
+        "state": "confirmado",
+        "bytes": 33,
+        "valid_frames": 1,
+        "decoded_sensor_records": 1,
+        "receiver_closed": true,
+        "protocol_commands_sent": 0,
+        "last_percent": 100,
+        "real_usb_opened": false
+      },
+      "legacy_alias_selection_synthetic_test": {
+        "aliases": 6,
+        "selected_index": 6,
+        "selected_mi": 4,
+        "correct_object": true,
+        "real_metadata_ioctls_executed": 0
+      },
+      "support_bundle_synthetic_test": true
+    },
+    "provided_log_corpus": {
+      "counts": {
+        "files": 89,
+        "valid_frames": 734,
+        "frame_issues": 0,
+        "historical_sensor_labels": 184,
+        "labeled_cmd": 367,
+        "labeled_ack": 367
+      },
+      "encodings": {
+        "utf-8-sig": 8,
+        "gb18030": 81
+      },
+      "association_counts": {
+        "cabeceras_correlacionadas_resultado_desconocido": 175,
+        "echo_no_confirma_respuesta": 4,
+        "asociacion_del_registro_sin_correlacion_de_cabeceras": 188
+      },
+      "perception_records": {
+        "records": 188,
+        "decoded": 184,
+        "selector_agreements": 188,
+        "label_matches": 184,
+        "unknown_layout_or_invalid_serial": 4
+      },
+      "distinct_labeled_ack": 150,
+      "hardware_tested": false,
+      "usb_operations": 0
+    },
+    "loopback_probe_worker": {
+      "state": "error",
+      "detail": "No se pudo verificar la conexión TCP/TLS en el plazo solicitado; no prueba que el servidor esté apagado.",
+      "source": "Sondeo solicitado por el usuario"
+    },
+    "libusb0_backend_cargado": true,
+    "windows_metadata_api_loaded": true,
+    "windows_parent_api_loaded": true,
+    "windows_parent_synthetic_test": {
+      "product": "Mini 4 Pro-SYNTHETIC",
+      "metadata_only": true,
+      "real_pnp_queries": 0
+    }
+  },
+  "native_windows_tested": false,
+  "real_dji_hardware_tested": false,
+  "real_mini4_package_available": false,
+  "original_analysis_report_available": true,
+  "provided_historical_logs_available": true,
+  "historical_dji_servers_probed": false,
+  "provided_native_libraries_statically_analyzed": true,
+  "provided_native_libraries_loaded": false,
+  "provided_native_libraries_redistributed": false,
+  "native_library_sha256": {
+    "DJI_Protocol_Comm.dll": "774f678f9b47684c0459edd256eb8e908373fc072ba56573fdd3379355f5aa8a",
+    "dji_test_userlibs.dll": "03a04ab846defd1be8fe5a36dd5c03b8c5389bf264f3ac3bb9782a5a033b0c83"
+  },
+  "mini4_usb_passive_available": true,
+  "mini4_active_sensor_query_enabled": false,
+  "calibration_download_enabled": false,
+  "mini4_write_enabled": false,
+  "provided_usb_descriptor_report_available": true,
+  "reported_interface_4_driver_service": "libusb0_device",
+  "legacy_usb_user_library": {
+    "version": "1.4.0.2",
+    "architecture": "amd64",
+    "sha256": "0cd18719d5701e9cc642fc93a83f13830931d6f29f664fedbdf212bcb7c349bd",
+    "driver_installed_or_replaced": false,
+    "corresponding_source_included": true
+  },
+  "reported_device_profile": {
+    "product_family": "Mini 4 Pro",
+    "firmware_user_reported": "01.00.1100",
+    "vid": "2ca3",
+    "pid": "0020",
+    "interface": 4,
+    "bulk_in": "85",
+    "bulk_out_present": "04",
+    "packet_size": 512
+  },
+  "common_controls_manifest": "6.0.0.0",
+  "exe_sha256": "8676a026b933baf1f821319d71156a5fb4c86c5c0cbf082b8796d55edd9f33fa",
+  "evidence_limits": "User report from 1.2.5 proves unique MI04 selection and configuration access, but no bulk reads: the child product guard rejected an unlogged value. 1.2.6 logs both product sources and accepts a generic or missing legacy child descriptor only with a positively bound physical Windows parent of the expected VID/PID and Mini 4 Pro product. Parent metadata is read before the exclusive USB handle. Fixed IOCTL and Configuration Manager calls are checked with synthetic fixtures; exports and native-width fixtures run under Wine. Physical parent lookup and bulk reception on the user device remain pending; no active sensor commands enabled."
+}

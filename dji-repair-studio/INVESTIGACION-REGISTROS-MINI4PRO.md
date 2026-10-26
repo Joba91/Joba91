@@ -1,4 +1,4 @@
-# Investigación de DLL y registros · DJI REPAIR Studio 1.2.5
+# Investigación de DLL y registros · DJI REPAIR Studio 1.2.6
 
 Se analizaron estáticamente los dos binarios recibidos y se contrastaron sus
 estructuras con los 89 registros anteriores. No se cargaron ni ejecutaron las DLL.
@@ -132,7 +132,7 @@ Las pruebas sintéticas cubren conversión sin etiquetas, cuatro selectores,
 campos inválidos, límites de fecha, proveedor, nibble, CRC incorrecto, ecos,
 etiquetas discordantes y tabla de sensores sin identificar el equipo conectado.
 La ejecución del EXE bajo Wine analiza además los 89 registros reales; solo se
-publican los recuentos. Véanse `validacion-1.2.5.json` y los resultados de pruebas.
+publican los recuentos. Véanse `validacion-1.2.6.json` y los resultados de pruebas.
 La recepción pasiva se prueba con dependencias USB simuladas: timeout, desconexión,
 configuración incorrecta, rechazo de otro modelo, cancelación, límite de bytes,
 archivo existente y error de disco/cierre. El EXE bajo Wine recorre esa misma
@@ -184,3 +184,28 @@ prueba, no se sube y no sobrescribe archivos. Se conservan las restricciones de
 recepción pasiva y consultas activas/calibración pendientes. Las pruebas usan seis
 alias simulados y una API Windows simulada; falta confirmar la consulta de
 metadatos y la recepción con el controlador físico del usuario.
+
+## Identificación del producto y revisión 1.2.6
+
+El informe de usuario de 1.2.5 alcanza la configuración después de seleccionar
+MI04, pero se detiene en el producto antes de cualquier lectura bulk. No guardaba
+el texto devuelto por la interfaz; no permite atribuir la causa a un valor concreto.
+UsbTreeView sigue mostrando la familia Mini 4 Pro en el dispositivo físico.
+
+1.2.6 conserva los valores observados incluso si falla la apertura. Para libusb0
+consulta el nodo exacto del alias con GET_OBJECT_NAME (0x2223fc, petición fija de
+24 bytes, índice 0), valida su VID/PID/MI04 y obtiene su padre directo mediante
+Configuration Manager. Exige un padre físico USB 2CA3:0020 sin MI y consulta solo
+DEVPKEY_Device_BusReportedDeviceDesc. No busca por nombre entre otros equipos.
+Solo permite un descriptor de interfaz genérico o ausente si ese padre acredita
+el producto Mini 4 Pro; rechaza un descriptor explícito de otro modelo.
+La consulta local se cierra antes de que PyUSB abra el alias de forma exclusiva.
+Las APIs y la propiedad se contrastaron con libusb-win32 y Microsoft WinSDK.
+No se incluye ningún encabezado Microsoft ni se efectúan escrituras PnP.
+
+Las pruebas con buffers y errores simulados cubren asociación, formato, límites,
+fallos y orden de apertura. Wine comprueba las exportaciones y buffers nativos.
+La consulta del padre y recepción bulk reales siguen pendientes de probar en el
+equipo del usuario. No se habilitan consultas activas ni calibración. Los informes
+locales pueden contener el producto con identificador de unidad; no se publican
+los adjuntos originales. Las rutas PnP se conservan solo como huellas SHA-256.

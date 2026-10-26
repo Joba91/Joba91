@@ -105,7 +105,7 @@ class VisionGuiTests(unittest.TestCase):
             self.assertEqual(z.read(dest.name),frame)
             saved=json.loads(z.read('DJI-REPAIR-informe.json'))
             self.assertEqual(saved['vision']['capture']['usb_capture']['protocol_commands_sent'],0)
-            self.assertEqual(saved['version'],'1.2.5')
+            self.assertEqual(saved['version'],'1.2.6')
     def test_failed_open_still_creates_zip_with_the_complete_error_report(self):
         from vision_usb_passive import capture_passive,UsbOpeningError
         from zipfile import ZipFile

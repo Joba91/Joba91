@@ -41,6 +41,8 @@ class PassiveTransportTests(unittest.TestCase):
         self.selector=self.stack.enter_context(patch('vision_usb_passive.select_mi04',side_effect=lambda items:(items[0],{'selected_mi':4})))
         self.find=self.stack.enter_context(patch('usb.core.find',return_value=[self.device]))
         self.product=self.stack.enter_context(patch('usb.util.get_string',return_value='Mini 4 Pro-SYNTHETIC'))
+        self.parent=self.stack.enter_context(patch('vision_usb_passive.parent_product_for_device',return_value={
+            'product':'Mini 4 Pro-SYNTHETIC','source':'Windows physical USB parent / BusReportedDeviceDesc','metadata_only':True}))
         self.claim=self.stack.enter_context(patch('usb.util.claim_interface'))
         self.release=self.stack.enter_context(patch('usb.util.release_interface'))
         self.dispose=self.stack.enter_context(patch('usb.util.dispose_resources'))
@@ -155,6 +157,56 @@ class PassiveTransportTests(unittest.TestCase):
         for other in devices[:-1]:other.get_active_configuration.assert_not_called()
         self.claim.assert_called_once_with(devices[-1],4)
         self.backend.assert_not_called();transport.close()
+    def test_generic_or_missing_interface_name_requires_verified_parent(self):
+        for product in ('DJI USB Interface',None,''):
+            self.product.return_value=product
+            t=PassiveVisionUsbTransport('libusb0')
+            self.assertEqual(t.evidence['product_identification_source'],self.parent.return_value['source'])
+            self.assertEqual(t.evidence['observed']['interface_product_string'],product)
+            t.close()
+        self.assert_no_device_changes()
+    def test_parent_metadata_is_closed_before_exclusive_pyusb_open(self):
+        order=[]
+        self.parent.side_effect=lambda dev:(order.append('parent') or self.parent.return_value)
+        self.device.get_active_configuration.side_effect=lambda:(order.append('open') or self.device.cfg)
+        self.product.return_value=None
+        t=PassiveVisionUsbTransport('libusb0');t.close()
+        self.assertEqual(order,['parent','open']);self.parent.assert_called_once_with(self.device)
+    def test_wrong_parent_product_blocks_generic_child(self):
+        self.product.return_value='DJI USB Interface';self.parent.return_value['product']='Mini 3 Pro-SYNTHETIC'
+        with self.assertRaises(UsbOpeningError) as error:PassiveVisionUsbTransport('libusb0')
+        d=error.exception.diagnostics[0]
+        self.assertEqual(d['stage'],'check_parent_product')
+        self.assertEqual(d['observed']['interface_product_string'],'DJI USB Interface')
+        self.assertEqual(d['observed']['physical_parent_product']['product'],'Mini 3 Pro-SYNTHETIC')
+        self.claim.assert_not_called();self.assert_no_device_changes()
+    def test_explicit_other_model_is_never_overridden_by_parent(self):
+        for name in ('Mavic 3','Mini 3 Pro','DJI Air 3','Avata 2'):
+            self.product.return_value=name
+            with self.assertRaises(UsbOpeningError) as error:PassiveVisionUsbTransport('libusb0')
+            self.assertEqual(error.exception.diagnostics[0]['stage'],'check_product')
+        self.claim.assert_not_called();self.assert_no_device_changes()
+    def test_parent_failure_retains_both_observations_and_never_claims(self):
+        self.product.return_value=None;self.parent.side_effect=RuntimeError('parent not available')
+        with self.assertRaises(UsbOpeningError) as error:PassiveVisionUsbTransport('libusb0')
+        d=error.exception.diagnostics[0]
+        self.assertEqual(d['stage'],'read_parent_product_metadata')
+        self.assertIn('parent not available',d['observed']['parent_metadata_error']['message'])
+        self.assertIsNone(d['observed']['interface_product_string']);self.claim.assert_not_called()
+    def test_descriptor_unavailable_can_use_positive_parent(self):
+        self.product.side_effect=ValueError('language ID unavailable')
+        t=PassiveVisionUsbTransport('libusb0')
+        self.assertIn('product_read_error',t.evidence['observed']);t.close();self.assert_no_device_changes()
+    def test_descriptor_access_denied_or_busy_is_not_bypassed(self):
+        for code in (1,13,16):
+            self.product.side_effect=usb.core.USBError('denied or busy',errno=code)
+            with self.assertRaises(UsbOpeningError) as error:PassiveVisionUsbTransport('libusb0')
+            self.assertEqual(error.exception.diagnostics[0]['stage'],'read_product_descriptor')
+        self.claim.assert_not_called()
+    def test_modern_backend_never_uses_legacy_parent_fallback(self):
+        self.product.return_value=None
+        with self.assertRaises(UsbOpeningError):PassiveVisionUsbTransport('libusb1')
+        self.parent.assert_not_called();self.claim.assert_not_called()
 
 class Clock:
     def __init__(self):self.now=0

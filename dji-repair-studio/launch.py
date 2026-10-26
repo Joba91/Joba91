@@ -123,8 +123,30 @@ def main():
             legacy=Path(getattr(sys,'_MEIPASS',Path(__file__).parent/'native'))/'libusb0.dll'
             report['libusb0_backend_cargado']=usb.backend.libusb0.get_backend(find_library=lambda name:str(legacy)) is not None
             from vision_usb_legacy import windows_kernel32
+            from vision_usb_parent import windows_cfgmgr32,read_parent_product
+            import ctypes
             kernel=windows_kernel32()
             report['windows_metadata_api_loaded']=all(getattr(kernel,name,None) is not None for name in ('CreateFileW','DeviceIoControl','CloseHandle'))
+            cm=windows_cfgmgr32()
+            report['windows_parent_api_loaded']=all(getattr(cm,name,None) is not None for name in (
+                'CM_Locate_DevNodeW','CM_Get_Parent','CM_Get_Device_IDW','CM_Get_DevNode_PropertyW'))
+            # Synthetic native-width buffers exercise the frozen Windows build;
+            # these methods never call cfgmgr32 or open a real device.
+            class SyntheticParent:
+                def CM_Locate_DevNodeW(self,out,instance,flags):
+                    ctypes.cast(out,ctypes.POINTER(ctypes.c_uint32))[0]=1;return 0
+                def CM_Get_Parent(self,out,child,flags):
+                    ctypes.cast(out,ctypes.POINTER(ctypes.c_uint32))[0]=2;return 0
+                def CM_Get_Device_IDW(self,parent,out,size,flags):
+                    out.value='USB\\VID_2CA3&PID_0020\\SYNTHETIC';return 0
+                def CM_Get_DevNode_PropertyW(self,parent,key,kind,out,size,flags):
+                    raw='Mini 4 Pro-SYNTHETIC\0'.encode('utf-16-le')
+                    ctypes.cast(kind,ctypes.POINTER(ctypes.c_uint32))[0]=0x12
+                    ctypes.cast(size,ctypes.POINTER(ctypes.c_uint32))[0]=len(raw)
+                    ctypes.memmove(out,raw,len(raw));return 0
+            parent=read_parent_product('USB\\VID_2CA3&PID_0020&MI_04\\SYNTHETIC',SyntheticParent())
+            report['windows_parent_synthetic_test']={'product':parent['product'],
+                'metadata_only':parent['metadata_only'],'real_pnp_queries':0}
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

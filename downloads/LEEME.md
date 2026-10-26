@@ -1,21 +1,21 @@
-# DJI REPAIR Studio 1.2.5
+# DJI REPAIR Studio 1.2.6
 
-[Descargar Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.2.5.zip)
+[Descargar Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.2.6.zip)
 
-Extrae el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.2.5.exe**.
+Extrae el ZIP en una carpeta nueva y abre **DJI REPAIR Studio 1.2.6.exe**.
 
-## Corrección de selección MI04
+## Identificación del producto Mini 4 Pro
 
-El informe de 1.2.4 muestra que libusb0 enumera seis entradas 2CA3:0020 y se
-detiene antes de leer. Ese número no acredita seis aeronaves: puede representar
-interfaces de un dispositivo compuesto. La revisión identifica cada alias por
-sus HardwareID locales de Windows y exige **una única MI04**. No elige el primer
-resultado ni abre otras interfaces para probarlas. Mantiene las comprobaciones
-de producto, configuración y endpoints y no instala ni sustituye controladores.
+El informe de 1.2.5 demuestra que MI04 se seleccionó y se leyó la configuración,
+pero se detuvo antes de recibir datos porque el nombre de la interfaz no pasó
+la comprobación. No guardaba el valor recibido. UsbTreeView sigue indicando
+Mini 4 Pro en el producto del dispositivo físico.
 
-También genera automáticamente un ZIP con la captura y el informe JSON, incluso
-cuando falla la apertura o el .bin queda vacío. No se sube ningún archivo de forma
-automática. Los archivos existentes se conservan.
+1.2.6 consulta el padre físico asociado exactamente al alias MI04. Un descriptor
+hijo genérico o ausente solo se admite si ese padre acredita VID/PID 2CA3:0020
+y producto Mini 4 Pro. La consulta de metadatos se cierra antes de la apertura
+exclusiva USB. Otro modelo explícito o una asociación inválida bloquean la recepción.
+El informe conserva ambas lecturas y los errores precisos. No cambia drivers.
 
 ## Prueba
 
@@ -23,26 +23,21 @@ automática. Los archivos existentes se conservan.
 2. Abre **Visión Mini 4 Pro** y escribe **01.00.1100** en Firmware declarado,
    si esa es la versión de tu aeronave en DJI Fly.
 3. Pulsa **Capturar USB pasivo**, elige un archivo **nuevo** `.bin` y espera.
-4. Comparte el **ZIP Mini4Pro-USB-....zip** que se crea junto al `.bin`.
-   Incluye `DJI-REPAIR-informe.json`; no hace falta comprimir el .bin manualmente.
+4. Comparte el **ZIP Mini4Pro-USB-....zip** creado junto al `.bin`.
+   Incluye captura e informe, incluso si no recibió datos o falló la apertura.
 
-Guardar informe sigue disponible como exportación JSON manual. Si no se puede
-crear el ZIP, el resultado indica el error y permite guardar ese JSON.
-
-La captura solo recibe de IN 85 en la interfaz 4, durante 5/10 segundos tras abrir
-o hasta 1 MiB. El porcentaje mide tiempo de recepción. No consulta activamente
-sensores ni inicia fábrica, calibración, reset, escritura o cambios de firmware.
-Una captura vacía no demuestra avería: el informe distingue la falta de tráfico
-del fallo al abrir. Las consultas activas y calibraciones Mini 4 Pro siguen pendientes.
+La recepción lee IN 85 de MI04 durante 5/10 segundos o hasta 1 MiB. El porcentaje
+mide tiempo. Cero bytes no significa avería. No consulta activamente sensores ni
+inicia calibración, fábrica, escritura o cambios de firmware/controladores.
+No se suben archivos automáticamente. El informe local puede incluir el producto
+con identificador de unidad; revísalo antes de publicarlo.
 
 [Investigación](../dji-repair-studio/INVESTIGACION-REGISTROS-MINI4PRO.md) ·
 [Uso y arquitectura](../dji-repair-studio/VISION-MINI4PRO.md) · [Código](../dji-repair-studio)
 
-Validación: **149 pruebas de aplicación y 9 de empaquetado** aprobadas. El EXE
-arranca bajo Wine, carga ambas bibliotecas USB y las APIs Windows, selecciona
-MI04 entre seis entradas simuladas y crea un ZIP con captura e informe sintéticos.
-La consulta física al controlador y la recepción real siguen pendientes; no se
-declara prueba en Windows nativo o con un dron. El ZIP contiene fuentes, licencias
-y fuente correspondiente de libusb-win32, sin instaladores ni drivers binarios.
-Los adjuntos originales e identificadores de unidad no se publican.
-Consulta **SHA256SUMS.txt** para la huella del paquete.
+Validación: **170 pruebas de aplicación y 9 de empaquetado** aprobadas; arranque
+del EXE y carga de APIs bajo Wine, con asociación de padre y buffers sintéticos.
+La consulta del padre y recepción físicas siguen pendientes. No se declara prueba
+en Windows nativo o con un dron. Incluye fuentes, licencias y fuente correspondiente
+de libusb-win32, sin instaladores ni drivers binarios. Los adjuntos originales e
+identificadores reales de unidad no se publican. Consulta **SHA256SUMS.txt**.
