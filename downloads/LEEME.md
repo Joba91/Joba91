@@ -47,3 +47,5 @@ sin una nueva consulta física o prueba de Windows nativo. Los originales perman
 ## Investigación de calibración de visión
 
 [Recopilador del motor de visión 1.0.0](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Investigacion_Vision_1.0.0.zip) — busca componentes locales para análisis. **No calibra el dron y no sustituye DJI REPAIR Studio.** Extrae el ZIP y abre `Recopilar-motor-vision.cmd`.
+
+[Recopilador de dependencias de visión 1.1.0](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Dependencias_Vision_1.1.0.zip) — completa los binarios del motor Consumer identificado. Extrae y abre `Recopilar-dependencias-vision.cmd`. **Herramienta de investigación; no calibra.**

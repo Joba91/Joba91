@@ -1,0 +1,27 @@
+DJI REPAIR - Dependencias del motor de vision 1.1.0
+
+Este paquete NO calibra el dron. Completa los componentes necesarios para
+investigar la calibracion real a partir de la DLL Consumer que ya compartiste.
+
+1. Extrae este ZIP en una carpeta nueva de tu PC.
+2. Abre Recopilar-dependencias-vision.cmd.
+3. Espera a que muestre "Resultado".
+4. En el Escritorio se crea DJI-Vision-Dependencias-...
+5. Comparte aqui su ZIP. Si aparecen partes .part001, .part002, etc., comparte
+   todas las partes en lugar del ZIP grande.
+
+No necesitas conectar el dron, abrir DJI Assistant ni iniciar sesion.
+No solicita permisos de administrador. No ejecuta DLL ni EXE. No inicia servicios
+ni consulta USB o servidores. El CMD permite ejecutar este script en su proceso
+de PowerShell; no cambia la configuracion permanente de Windows.
+
+La busqueda selecciona el SHA-256 exacto de DJIVisionCalibration3.dll Consumer
+analizado. Desde esa misma carpeta recoge los archivos DLL, VisionStarter3.exe
+y los DLL de platforms/imageformats. No mezcla la instalacion Enterprise.
+No recoge configuraciones, contrasenas, registros ni archivos encr.
+
+El paquete generado contiene componentes propietarios y rutas locales:
+compartelo en esta conversacion para analisis privado; no lo publiques.
+
+Si no encuentra la misma version Consumer, el inventario lo indicara y no se
+afirmara compatibilidad. Se conservan los limites de busqueda y de tamano.

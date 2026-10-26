@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string[]]$SearchRoot = @(),
-    [string]$OutputRoot = ''
+    [string]$OutputRoot = '',
+    [switch]$EngineBundle
 )
 
 Set-StrictMode -Version 2
@@ -11,6 +12,8 @@ $ErrorActionPreference = 'Stop'
 # contacts a server, installs a driver, or requests administrator rights.
 $wanted = @('DJIVisionCalibration.dll', 'DJIVisionCalibration2.dll',
             'DJIVisionCalibration3.dll', 'DJI_guidance.dll')
+$consumerEngineHash = '7105076d6c72e50b823d0bec9c7696c2aa7fdd50578361e68dec3a838bf41044'
+if ($EngineBundle) { $wanted = @() }
 $maxDirectories = 10000
 $maxFiles = 100000
 $maxFileBytes = 128MB
@@ -53,7 +56,9 @@ if (-not (Test-Path -LiteralPath $OutputRoot -PathType Container)) {
     throw 'La carpeta de salida no existe.'
 }
 
-$label = 'DJI-Vision-Motor-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' +
+$prefix = 'DJI-Vision-Motor-'
+if ($EngineBundle) { $prefix = 'DJI-Vision-Dependencias-' }
+$label = $prefix + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' +
     [Guid]::NewGuid().ToString('N').Substring(0, 8)
 $output = Join-Path $OutputRoot $label
 $stage = Join-Path $output 'contenido'
@@ -61,6 +66,8 @@ $null = New-Item -ItemType Directory -Path $stage
 $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
 $hashes = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
 $queue = New-Object 'System.Collections.Generic.Queue[string]'
+$bundleFolders = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+$matchedEngines = @()
 $roots = @()
 $records = @()
 $excluded = @()
@@ -89,13 +96,32 @@ while ($queue.Count -gt 0) {
     Write-Progress -Activity 'Buscar motor de vision' -Status $folder
     try { $children = @(Get-ChildItem -LiteralPath $folder -Force -ErrorAction Stop) }
     catch { $unreadable++; continue }
+    if ($EngineBundle) {
+        # Select the exact Consumer engine already supplied and analyzed.
+        # Do not mix it with the unrelated Enterprise/legacy installations.
+        foreach ($candidate in $children) {
+            if ($candidate.PSIsContainer -or $candidate.Name -ine 'DJIVisionCalibration3.dll' -or
+                ($candidate.Attributes -band [IO.FileAttributes]::ReparsePoint)) { continue }
+            try {
+                $candidateHash = (Get-FileHash -LiteralPath $candidate.FullName -Algorithm SHA256).Hash
+                if ($candidateHash -ine $consumerEngineHash) { continue }
+                $null = $bundleFolders.Add($folder)
+                $matchedEngines += @{ directory = $folder; sha256 = $consumerEngineHash }
+                foreach ($subfolder in @('platforms', 'imageformats')) {
+                    $null = $bundleFolders.Add((Join-Path $folder $subfolder))
+                }
+            } catch { $unreadable++ }
+        }
+    }
     foreach ($child in $children) {
         if ($child.FullName -eq $output) { continue }
         if ($child.Attributes -band [IO.FileAttributes]::ReparsePoint) { continue }
         if ($child.PSIsContainer) { $queue.Enqueue($child.FullName); continue }
         $files++
         if ($files -gt $maxFiles) { $limitsReached = $true; break }
-        if ($wanted -notcontains $child.Name) { continue }
+        $isBundleFile = $EngineBundle -and $bundleFolders.Contains($folder) -and
+            ($child.Extension -ieq '.dll' -or $child.Name -ieq 'VisionStarter3.exe')
+        if (($wanted -notcontains $child.Name) -and -not $isBundleFile) { continue }
         $destination = $null
         try {
             if ($child.Length -gt $maxFileBytes) {
@@ -135,11 +161,12 @@ while ($queue.Count -gt 0) {
 Write-Progress -Activity 'Buscar motor de vision' -Completed
 
 $manifest = @{
-    schema = 'dji-repair-vision-engine-inventory-v1'; collector_version = '1.0.0'
+    schema = 'dji-repair-vision-engine-inventory-v1'; collector_version = '1.1.0'
     created_local = (Get-Date).ToString('o'); search_roots = @($roots)
     files = @($records); excluded = @($excluded); directories_scanned = $directories
     files_scanned = $files; unreadable_directories = $unreadable; limits_reached = $limitsReached
     engine_candidates_found = $records.Count
+    include_engine_dependencies = [bool]$EngineBundle; matched_engines = @($matchedEngines)
     calibration_implemented = $false; mini4_compatibility_confirmed = $false
     device_operations = 0; network_operations = 0; dji_libraries_executed = 0
     note = 'Inventario para analisis estatico. Nombres y versiones no prueban compatibilidad ni calibracion.'
@@ -182,6 +209,7 @@ Write-Host ''
 Write-Host ('Componentes candidatos encontrados: ' + $records.Count)
 if ($records.Count -eq 0) {
     Write-Host 'No se encontro el motor en las carpetas revisadas; el ZIP contiene el inventario.'
+    if ($EngineBundle) { Write-Host 'No se encontro la misma version Consumer analizada. No se mezclaron otras versiones.' }
 }
 Write-Host ('Resultado: ' + $output)
 Write-Host 'Comparte el ZIP. Si aparecen partes .part001, .part002..., comparte todas esas partes.'
