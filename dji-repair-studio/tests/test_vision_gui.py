@@ -7,7 +7,7 @@ import tkinter as tk
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from studio_app import StudioApp,SN_ACTION,HMS_ACTION,VISION_ACTIONS
+from studio_app import StudioApp,SN_ACTION,HMS_ACTION,IMAGE_ACTION,VISION_ACTIONS,VERSION
 from test_vision import USER_FRAME
 
 @unittest.skipUnless(os.environ.get('DISPLAY') or os.name=='nt','Requires a graphical display')
@@ -105,7 +105,7 @@ class VisionGuiTests(unittest.TestCase):
             self.assertEqual(z.read(dest.name),frame)
             saved=json.loads(z.read('DJI-REPAIR-informe.json'))
             self.assertEqual(saved['vision']['capture']['usb_capture']['protocol_commands_sent'],0)
-            self.assertEqual(saved['version'],'1.5.0')
+            self.assertEqual(saved['version'],VERSION)
     def test_failed_open_still_creates_zip_with_the_complete_error_report(self):
         from vision_usb_passive import capture_passive,UsbOpeningError
         from zipfile import ZipFile
@@ -151,6 +151,33 @@ class VisionGuiTests(unittest.TestCase):
             self.app.dispatch(SN_ACTION)
         error.assert_called_once();probe.assert_not_called();save.assert_not_called()
         self.assertFalse(self.app.running)
+    def test_image_receiver_requires_firmware_before_file_dialog_or_usb(self):
+        with patch('studio_app.messagebox.showerror') as error,patch('studio_app.capture_images') as probe,patch('studio_app.filedialog.asksaveasfilename') as save:
+            self.app.dispatch(IMAGE_ACTION)
+        error.assert_called_once();probe.assert_not_called();save.assert_not_called()
+        self.assertFalse(self.app.running)
+    def test_image_action_renders_both_saved_frames_in_main_window(self):
+        from vision_image_receiver import TOPICS,PGM_HEADER
+        self.app.vision.firmware.set('01.00.1100')
+        self.app.vision.engine_directory.set(str(self.root))
+        rows=[]
+        for topic,name in TOPICS.items():
+            path=self.root/name;path.write_bytes(PGM_HEADER+bytes([93])*307200)
+            rows.append({'topic':topic,'image_path':str(path)})
+        data={'state':'confirmado','frames':rows,'detail':'Dos fotogramas sintéticos de prueba. No es calibración.',
+              'calibration_performed':False,'completed':True}
+        with patch('studio_app.capture_images',return_value=data) as probe,patch('studio_app.filedialog.asksaveasfilename',return_value=str(self.root/'images.zip')):
+            self.app.dispatch(IMAGE_ACTION);self.wait_idle()
+        self.assertEqual(probe.call_args.args[1:3],(str(self.root),'01.00.1100'))
+        self.app.update()
+        self.assertEqual(len(self.app.vision.image_references),2)
+        sizes=[(p.width(),p.height()) for p in self.app.vision.image_references]
+        self.assertEqual(sizes[0],sizes[1])
+        self.assertTrue(0<sizes[0][0]<=320 and 0<sizes[0][1]<=240)
+        self.assertEqual(self.app.vision.tabs.select(),str(self.app.vision.image_page))
+        self.assertFalse(any(isinstance(w,tk.Toplevel) for w in self.app.winfo_children()))
+        self.app.vision.apply_report('images',{'state':'error','frames':[],'detail':'Sin recepción'})
+        self.assertEqual(self.app.vision.image_references,[])
     def test_sn_query_cancelled_file_dialog_never_opens_usb(self):
         self.app.vision.firmware.set('01.00.1100')
         with patch('studio_app.query_sensor_serials') as probe,patch('studio_app.filedialog.asksaveasfilename',return_value=''):

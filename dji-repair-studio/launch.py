@@ -5,6 +5,12 @@ import tkinter as tk
 from pathlib import Path
 
 def main():
+    if '--process-supervisor-worker' in sys.argv:
+        import time
+        path=Path(sys.argv[sys.argv.index('--process-supervisor-worker')+1])
+        path.write_text('own supervisor self-test; no DJI or USB',encoding='utf-8')
+        time.sleep(30)
+        return
     if '--vision-probe-worker' in sys.argv:
         from vision_services import probe_worker
         probe_worker(sys.argv[sys.argv.index('--vision-probe-worker')+1],sys.argv[sys.argv.index('--vision-probe-worker')+2])
@@ -114,7 +120,21 @@ def main():
             hms_bundle=write_support_bundle(root/'hms.bin',{'test_data':'synthetic','vision':{'diagnostic':hms_report}})
             with ZipFile(hms_bundle) as z:
                 hms_bundle_ok=z.testzip() is None and json.loads(z.read('DJI-REPAIR-informe.json'))['vision']['diagnostic']['hms']['complete_cycles']==3
+            from vision_image_receiver import TOPICS,PGM_HEADER
+            from vision_images import validate_frames
+            image_rows=[]
+            for topic,name in TOPICS.items():
+                image=root/name;image.write_bytes(PGM_HEADER+bytes([93])*307200)
+                image_rows.append({'topic':topic,'file':name,'sha256':hashlib.sha256(image.read_bytes()).hexdigest()})
+            checked=validate_frames(root,{'frames':image_rows})
+            app.vision.apply_report('images',{'state':'confirmado','detail':'Autoprueba sintética; no son imágenes del dron.',
+                'frames':[{**row,'image_path':str(root/row['file'])} for row in checked]})
+            app.update_idletasks()
+            image_test={'validated_files':len(checked),'ui_previews':len(app.vision.image_references),
+                'preview_sizes':[[p.width(),p.height()] for p in app.vision.image_references],
+                'real_usb_opened':False,'dji_code_loaded':False,'calibration_performed':False}
             vision_report={'test_data':'synthetic; not the user calibration package',
+                'image_preview_synthetic_test':image_test,
                 'inventory_files':inventory['file_count'],'md5_state':inventory['integrity']['state'],
                 'compatibility':LocalCalibrationProvider().compatibility(inventory,None).state,
                 'identity':UnavailableIdentification().identify().state,
@@ -230,6 +250,35 @@ def main():
             parent=read_parent_product('USB\\VID_2CA3&PID_0020&MI_04\\SYNTHETIC',SyntheticParent())
             report['windows_parent_synthetic_test']={'product':parent['product'],
                 'metadata_only':parent['metadata_only'],'real_pnp_queries':0}
+            # Launch only our helper's pure self-test, never its DJI adapter.
+            import subprocess
+            from vision_images import receiver_path
+            helper=receiver_path()
+            report['receiver32_packaged']={'x86_header_validated':True,
+                'sha256':hashlib.sha256(helper.read_bytes()).hexdigest(),'startup_tested':False}
+            from windows_job import start_hidden_process
+            import time
+            with tempfile.TemporaryDirectory(prefix='dji-supervisor-test-') as folder:
+                marker=Path(folder)/'ready.txt'
+                worker=start_hidden_process([sys.executable,'--process-supervisor-worker',str(marker)],folder)
+                try:
+                    deadline=time.monotonic()+10
+                    while not marker.is_file() and worker.poll() is None and time.monotonic()<deadline:
+                        time.sleep(.05)
+                    ready=marker.is_file()
+                    worker.terminate();code=worker.wait(timeout=3)
+                    if not ready or code==0:raise RuntimeError('Falló la autoprueba del supervisor de procesos.')
+                    report['windows_job_supervisor_test']={'worker_started':True,'child_tree_terminated':True,
+                        'real_usb_opened':False,'dji_code_loaded':False}
+                finally:
+                    worker.close()
+            if '--smoke-test-receiver' in sys.argv:
+                with tempfile.TemporaryDirectory(prefix='dji-receiver-smoke-') as folder:
+                    destination=Path(folder)/'self-test.json'
+                    subprocess.run([str(helper),'--self-test',str(destination)],
+                        check=True,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
+                    report['receiver32_self_test']=json.loads(destination.read_text(encoding='utf-8'))
+                    report['receiver32_packaged']['startup_tested']=True
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

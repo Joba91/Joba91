@@ -12,6 +12,7 @@ $LibUsb = & $Python -c "import pathlib, libusb_package; print(pathlib.Path(libus
 Check-Exit
 $LegacyUsb = Join-Path $PSScriptRoot 'native\libusb0.dll'
 if ((Get-FileHash $LegacyUsb -Algorithm SHA256).Hash -ne '0cd18719d5701e9cc642fc93a83f13830931d6f29f664fedbdf212bcb7c349bd') { throw 'La biblioteca libusb0.dll no coincide con el binario oficial verificado.' }
-& $Python -m PyInstaller --noconfirm --clean --onefile --windowed --name 'DJI REPAIR Studio 1.5.0' --add-binary "$LibUsb;." --add-binary "$LegacyUsb;." --add-data 'native\licenses;licenses\libusb-win32' launch.py
+if (-not (Test-Path 'vision_receiver32.exe')) { throw 'Falta vision_receiver32.exe de esta distribucion.' }
+& $Python -m PyInstaller --noconfirm --clean --onefile --windowed --name 'DJI REPAIR Studio 1.6.0' --add-binary "$LibUsb;." --add-binary "$LegacyUsb;." --add-data 'native\licenses;licenses\libusb-win32' --add-data 'vision_receiver32.exe;.' launch.py
 Check-Exit
-Write-Host "EXE independiente: $PSScriptRoot\dist\DJI REPAIR Studio 1.5.0.exe"
+Write-Host "EXE independiente: $PSScriptRoot\dist\DJI REPAIR Studio 1.6.0.exe"

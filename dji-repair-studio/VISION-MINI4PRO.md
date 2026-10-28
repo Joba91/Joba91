@@ -1,9 +1,42 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.5.0
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.6.0
 
 Hay recepción USB pasiva, análisis de archivos y una nueva **consulta SN experimental**.
 Se añade solicitud y lectura HMS experimental; la compatibilidad de esos datos con
 Mini 4 Pro y la interpretación de sus alarmas siguen pendientes. Calibración óptica,
 descarga e instalación no están implementadas.
+
+## Recepción experimental de imágenes · 1.6.0
+
+Selecciona **Visión Mini 4 Pro**, declara **01.00.1100** y pulsa
+**Recibir imágenes (prueba)**. Elige la carpeta **DJIEngine** de DJI Assistant 2
+Consumer si no se encuentra automáticamente y guarda un ZIP nuevo. Comparte
+`Mini4Pro-Vision-....zip` incluso si no recibe imágenes. No copies el JSON a la
+carpeta del EXE: se lee de su instalación, junto a las siete bibliotecas fijadas
+por SHA-256. El informe distingue errores de archivos, identidad, arranque y recepción.
+
+El receptor x86 es propio, oculto y separado del proceso x64 de la interfaz.
+El JSON recibido asigna `wa140` a `dual_chip_a7`, MI05 (`v1`) y MI03 (`dbus`).
+Se solicitan dos suscripciones de imágenes `raw/down/left` y `raw/down/right`;
+no se llaman APIs de calibración ni se escribe una configuración de sensores.
+La inicialización de transporte genera tráfico nativo; no se declara lectura
+pasiva ni cero escrituras USB. Los efectos del SDK no están validados en hardware.
+
+Se admiten únicamente metadatos de 640×480, 8 bits y 307200 bytes, con copia
+acotada del búfer y validación posterior de los PGM y su SHA-256. Cada imagen se
+muestra en la misma ventana y se guarda fuera de la carpeta temporal. No se
+presume sincronización entre ambas ni se consideran un conjunto de calibración.
+El arranque x86 no se ha probado en este host: su kernel no tiene habilitado
+`CONFIG_IA32_EMULATION`. La cabecera PE, manifiesto, importaciones y archivos
+congelados se verifican estáticamente; la lógica usa adaptadores sintéticos.
+La primera prueba de arranque del receptor/SDK requiere Windows real.
+
+El 100 % requiere dos imágenes verificadas y el ZIP creado; no significa salud
+ni calibración. Hay límite de tiempo y cancelación del proceso receptor.
+
+La referencia nativa es de visión **inferior**. No confirma cobertura del sensor
+delantero derecho ni compatibilidad con Mini 4 Pro/01.00.1100. Aún faltan esa
+validación física, el contrato completo del motor y verificación de escritura
+antes de habilitar calibración. No se incluyen las bibliotecas ni el JSON DJI.
 
 ## Corrección de mensajes extendidos y análisis sin USB
 
@@ -192,7 +225,7 @@ independientes `vision_sensor_records.py`/`studio_protocol.py`. La interfaz usa 
 único trabajador y raíz Tk; mantiene activas solo las acciones Mini 4 Pro previstas.
 La consulta no abre automáticamente al arrancar, importar o elegir un modelo.
 
-262 pruebas de aplicación/interfaz, pruebas de empaquetado y arranque bajo Wine.
+280 pruebas de aplicación/interfaz, pruebas de empaquetado y arranque bajo Wine.
 Los tests cubren solicitudes históricas, perfil equivocado, paquetes inválidos,
 selector ajeno, fragmentos, silencio, conflicto de SN, cancelación, límites,
 envío corto/timeout, desconexión, error de disco/cierre, UI y ZIP con TX/RX.
@@ -202,5 +235,5 @@ ensayos SN son evidencia aportada por el usuario, no hardware conectado al entor
 Wine comprueba además una suscripción HMS simulada, dos ciclos de referencia y
 un registro sin descripción validada, la tabla y el ZIP. Las fuentes públicas
 OSDK se consultan como referencia, no como garantía de compatibilidad Mini 4 Pro.
-Ver `validacion-1.5.0.json`, resultados incluidos y
+Ver `validacion-1.6.0.json`, resultados incluidos y
 [análisis de DLL y registros](INVESTIGACION-REGISTROS-MINI4PRO.md).

@@ -20,16 +20,18 @@ from vision_usb_passive import capture_passive, DECLARED_FIRMWARE
 from vision_support_bundle import write_support_bundle
 from vision_sensor_query import query_sensor_serials
 from vision_hms_query import probe_hms
+from vision_images import capture_images, default_engine_directory
 from pathlib import Path
 
-VERSION = '1.5.0'
+VERSION = '1.6.0'
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
           'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Mini 5 Pro')
 PROFILE_CODES = {'Mavic 3':'WM260','Mavic 3 Cine':'WM260','Mavic 4 Pro':'MAVIC4PRO','Mini 5 Pro':'MT5MFND'}
 CALIBRATION_ACTIONS = ('JointCoarse','LinearHall','Entrar modo fabrica','Salir modo fabrica','Escuchar progreso (20 s)')
 SN_ACTION='Consultar SN visión (prueba)'
 HMS_ACTION='Diagnóstico visión (HMS)'
-VISION_ACTIONS = ('Importar carpeta visión','Importar ZIP visión','Analizar captura visión','Capturar USB pasivo','Comprobar servidor visión',SN_ACTION,HMS_ACTION)
+IMAGE_ACTION='Recibir imágenes (prueba)'
+VISION_ACTIONS = ('Importar carpeta visión','Importar ZIP visión','Analizar captura visión','Capturar USB pasivo','Comprobar servidor visión',SN_ACTION,HMS_ACTION,IMAGE_ACTION)
 
 class ProgressState:
     """No time-based inference of motor/calibration completion."""
@@ -310,7 +312,17 @@ class StudioApp(tk.Tk):
         self.model.set('Mini 4 Pro')
         snapshot={'format':self.vision.format.get()}
         try:
-            if action=='Importar carpeta visión':
+            if action==IMAGE_ACTION:
+                snapshot['firmware']=self.vision.firmware.get().strip()
+                if snapshot['firmware']!=DECLARED_FIRMWARE:raise ValueError('Escribe el firmware declarado 01.00.1100 para esta prueba.')
+                directory=self.vision.engine_directory.get().strip() or default_engine_directory()
+                if not Path(directory).is_dir():directory=filedialog.askdirectory(parent=self,title='Selecciona DJIEngine de DJI Assistant 2 Consumer')
+                if not directory:return
+                snapshot['engine']=directory;self.vision.engine_directory.set(directory)
+                snapshot['path']=filedialog.asksaveasfilename(parent=self,title='Guardar prueba de imágenes (no calibra)',
+                    defaultextension='.zip',filetypes=[('ZIP de imágenes e informe','*.zip')],
+                    initialfile=time.strftime('Mini4Pro-Vision-%Y%m%d-%H%M%S.zip'))
+            elif action=='Importar carpeta visión':
                 snapshot['path']=filedialog.askdirectory(parent=self,title='Paquete local de visión (solo lectura)')
             elif action in ('Importar ZIP visión','Analizar captura visión'):
                 snapshot['path']=filedialog.askopenfilename(parent=self,title=action,
@@ -335,13 +347,17 @@ class StudioApp(tk.Tk):
                      'fecha_unix':time.time(),'resultado':None,'paquetes':[],'progreso':[],'vision':dict(self.vision.reports)}
         self._set_busy(True,action!='Comprobar servidor visión')
         self.progress_bar.configure(mode='indeterminate');self.progress_value.set(0);self.progress_bar.start(12)
-        self.percent_text.set('—');self.progress_text.set('Preparando prueba HMS en modo normal' if action==HMS_ACTION else 'Preparando prueba SN en modo normal' if action==SN_ACTION else 'Recepción USB pasiva solicitada; sin peticiones de servicio' if action=='Capturar USB pasivo' else 'Procesando archivo o sondeo; sin consulta al dron')
+        self.percent_text.set('—');self.progress_text.set('Preparando recepción de imágenes; no se calibra' if action==IMAGE_ACTION else 'Preparando prueba HMS en modo normal' if action==HMS_ACTION else 'Preparando prueba SN en modo normal' if action==SN_ACTION else 'Recepción USB pasiva solicitada; sin peticiones de servicio' if action=='Capturar USB pasivo' else 'Procesando archivo o sondeo; sin consulta al dron')
         self.status.set(action);self.append('>>> '+action)
         threading.Thread(target=self.vision_worker,args=(action,snapshot),daemon=True).start()
 
     def vision_worker(self,action,snapshot):
         try:
-            if action in ('Importar carpeta visión','Importar ZIP visión'):
+            if action==IMAGE_ACTION:
+                data=capture_images(snapshot['path'],snapshot['engine'],snapshot['firmware'],
+                    cancelled=self.stop.is_set,progress=lambda e:self.events.put(('progress',e)))
+                category='images';state=data['state'];detail=data['detail']
+            elif action in ('Importar carpeta visión','Importar ZIP visión'):
                 data=inspect_package(snapshot['path'],progress=lambda e:self.events.put(('progress',e)),cancelled=self.stop.is_set)
                 data['candidates']=LocalCalibrationProvider().candidates(data)
                 data['compatibility']=LocalCalibrationProvider().compatibility(data,None).to_dict();category='package'
@@ -401,7 +417,7 @@ class StudioApp(tk.Tk):
             self.events.put(('vision',{'category':category,'data':data}))
             self.events.put(('error' if state=='error' else 'result',{'estado':state,'detalle':detail}))
         except Exception as exc:
-            category='diagnostic' if action==HMS_ACTION else 'package' if action.startswith('Importar') else 'capture' if action in ('Analizar captura visión','Capturar USB pasivo') else 'server' if action=='Comprobar servidor visión' else 'identity'
+            category='images' if action==IMAGE_ACTION else 'diagnostic' if action==HMS_ACTION else 'package' if action.startswith('Importar') else 'capture' if action in ('Analizar captura visión','Capturar USB pasivo') else 'server' if action=='Comprobar servidor visión' else 'identity'
             data={'state':'error','detail':str(exc),'source':'Operación local o sondeo solicitado'}
             self.events.put(('vision',{'category':category,'data':data}))
             self.events.put(('error',{'estado':'error','detalle':str(exc)}))

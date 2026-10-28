@@ -1,0 +1,91 @@
+DJI REPAIR Studio
+
+Base y motor de servicio: archivos facilitados por el usuario.
+Interfaz unificada: studio_app.py y launch.py, versión 1.6.0.
+Protocolos de calibración: reimplementación a partir del material MyMavCaliTool3 /
+YanDron suministrado por el usuario. No se ejecutan ni distribuyen sus DLL .NET.
+No se incluye su bloque fijo de escritura IMU.
+Esta referencia conserva la procedencia técnica; no se muestra como marca del programa.
+
+comm_serialtalk.py y comm_dat2pcap.py: o-gs/dji-firmware-tools (GPLv3),
+https://github.com/o-gs/dji-firmware-tools
+Se conservan avisos de licencia y copyright en los archivos de código.
+
+Runtime Windows: Python 3.13.16, Tcl/Tk 8.6.15 y dependencias de
+repo.anaconda.com/pkgs/main, verificados contra SHA-256 de su índice HTTPS.
+PyInstaller 6.16.0, pyserial 3.5, PyUSB 1.3.1 y libusb-package 1.0.26.4,
+obtenidos de PyPI con verificación TLS. Licencias de terceros incluidas.
+
+Análisis de archivos, captura pasiva, SN y HMS: implementaciones propias sin
+carga de DLL DJI. La prueba de imágenes 1.6.0 usa el motor Consumer local.
+Se recibieron el informe externo, registros/configuraciones y dos DLL x86.
+En el entorno de desarrollo solo se inspeccionaron estáticamente; no se
+ejecutaron. No se redistribuyen. El receptor de imágenes las carga únicamente
+en el PC del usuario y solo al solicitar esa prueba.
+El decodificador de datos es propio y no necesita esas DLL.
+Las pruebas unitarias usan datos sintéticos. Se contrastó además el lector con los 89 registros recibidos.
+Los originales, números de serie y datos de autenticación no se redistribuyen.
+
+Recepción USB pasiva: implementación propia con PyUSB/libusb, sin llamadas a DLL DJI.
+Perfil derivado de descriptores UsbTreeView aportados por el usuario; firmware
+01.00.1100 declarado desde DJI Fly. No se incluye el reporte con identificadores
+de unidad. El informe pasivo 1.2.6 del usuario se contrastó: 6123 bytes y 104 tramas válidas.
+La consulta SN activa se prueba con simuladores; Windows nativo no se ejecutó aquí.
+
+Biblioteca de usuario libusb-win32 1.4.0.2 amd64, sin modificar.
+Fuente oficial: https://github.com/mcuee/libusb-win32/releases/tag/release_1.4.0.2
+ZIP oficial SHA-256: 00004c92cdb99be36e17fb2377165eb97e63b48ba895bfc04a642ea9c3e26d94
+libusb0.dll SHA-256: 0cd18719d5701e9cc642fc93a83f13830931d6f29f664fedbdf212bcb7c349bd
+Se cotejó el ZIP con la huella publicada y se verificó arquitectura PE amd64.
+Textos LGPLv3/GPLv3, fuente correspondiente de la revisión
+0987f983a89e5e60d3c2db2af46564239c1b0d37 y procedencia incluidos en licencias/libusb-win32
+y fuentes/native/licenses. No se distribuyen ni ejecutan instaladores o drivers.
+La nueva ruta sigue sin depender de las DLL propietarias de DJI.
+
+Identificación de alias MI04: implementación propia con ctypes y las APIs de
+Windows CreateFileW, DeviceIoControl y CloseHandle. Consulta únicamente
+GET_DEVICE_PROPERTY / HardwareID del controlador local, según el ABI público
+de libusb-win32 de la revisión citada. No se cargan DLL DJI ni se escriben
+propiedades, configuraciones, modos o firmware para identificar esa interfaz.
+El ZIP de soporte se guarda localmente y no se envía automáticamente.
+
+Consulta SN experimental 1.5.0: implementación propia de la forma 24/26 observada
+en 188 consultas históricas (47 por selector), contrastada por SHA-256 de tramas.
+Análisis estático adicional de V1Filter RVA 0x414a0: máscara 0x43 en la ruta
+TSGetPerceptionSensorSN. La secuencia no se exige en ese filtro; el programa propio
+conserva las observaciones como no confirmadas. No se distribuyen capturas reales.
+Solo cuatro consultas SN, sin repetición o comandos de cambio de modo/datos.
+El soporte de la consulta en modo normal y firmware 01.00.1100 requiere prueba física.
+
+Diagnóstico HMS 1.5.0: implementación independiente a partir de análisis estático
+HMSBegin/HMSCheck de la DLL recibida, sin carga o distribución de esa DLL.
+Referencias de formato: DJI Onboard SDK público (licencia MIT), commit
+118e2825a347499efb8ed253146552c5b9b10779,
+https://github.com/dji-sdk/Onboard-SDK/blob/118e2825a347499efb8ed253146552c5b9b10779/osdk-core/api/inc/dji_hms.hpp
+Se consultaron definiciones de datos; no se incluye código, cabeceras o librerías
+OSDK ni su base de alarmas como si correspondiera a Mini 4 Pro.
+El perfil de envío, destino y bit de cierre procede del lector nativo, con las
+diferencias documentadas respecto a OSDK. No se incluye reset de suscriptores.
+Consulta física HMS y mapa de alarmas del Mini 4 Pro aún sin validar.
+
+HMS extendido 21/08: parser independiente de la estructura observada en tres
+capturas, sin copiar programas nativos. Se traducen seis descripciones breves
+de la tabla pública OSDK (commit citado); se presentan como referencias sin
+validación de modelo/actividad, no como diagnóstico actual de Mini 4 Pro.
+El resto de campos y tipos no contrastados se conserva opaco. No se redistribuyen
+los BIN/ZIP del usuario ni los identificadores de sus sensores.
+
+Recepción experimental de imágenes 1.6.0: vision_images.py y
+vision_image_receiver.py, implementaciones propias. Se incluyen el receptor
+propio vision_receiver32.exe y su código fuente; no es un ejecutable DJI.
+El receptor usa CPython x86 3.13.16 del paquete oficial pythonx86 NuGet y
+PyInstaller 6.16.0 win32 de PyPI, con sus licencias. receiver32-build.json
+registra URLs, huellas y miembros. El programa principal sigue siendo x64.
+Los siete componentes DJI/locales y dbus_pc.json se verifican por SHA-256
+en la instalación del usuario y se copian a una sesión temporal privada.
+Solo se enlazan las funciones DBus de inicialización/suscripción/recepción y
+destrucción de suscripciones. No se llama al cálculo ni a la escritura de
+calibración. La inicialización nativa implica tráfico USB de control cuyos
+efectos requieren prueba física. La configuración y las DLL no se empaquetan.
+Las imágenes usadas por las pruebas y la captura de interfaz son sintéticas
+y se identifican como tales; no se presentan como una recepción del dron.

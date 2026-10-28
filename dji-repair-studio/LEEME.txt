@@ -1,0 +1,159 @@
+DJI REPAIR STUDIO 1.6.0 — Windows 10/11 x64
+
+Extrae todo el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.6.0.exe.
+No necesita Python instalado ni la carpeta _internal de una instalación anterior.
+Una sola ventana, botones de ejecución en el lateral y barra de porcentaje.
+
+NUEVO: RECIBIR IMÁGENES (PRUEBA)
+1. Extrae este ZIP en una carpeta nueva y abre el EXE 1.6.0.
+2. Conecta el Mini 4 Pro encendido y cierra DJI Assistant y otros clientes USB.
+3. En Visión Mini 4 Pro escribe 01.00.1100 en Firmware declarado.
+4. Pulsa Recibir imágenes (prueba), en el lateral. Se busca DJIEngine de DJI
+   Assistant 2 Consumer; si está en otro sitio, selecciona esa carpeta.
+5. Guarda un ZIP nuevo Mini4Pro-Vision-....zip. Comparte ese ZIP aunque falle.
+   Los fotogramas que lleguen también se muestran dentro de la misma ventana.
+
+No tienes que añadir dbus_pc.json a DJI REPAIR: se lee de la carpeta DJIEngine
+junto a las bibliotecas originales ya instaladas. Se verifican sus SHA-256.
+Si indica que falta un archivo o que su versión difiere, comparte el informe;
+no sustituyas DLL ni cambies controladores para forzar la prueba.
+
+Esta función es EXPERIMENTAL. Ejecuta un receptor propio x86 oculto que utiliza
+el transporte nativo local; no abre una segunda interfaz. El motor se inicializa
+con el perfil wa140/dual_chip_a7 recibido: MI05 V1 y MI03 DBus. Se suscribe a
+raw/down/left y raw/down/right y acepta solo el formato contrastado 640x480/8 bits.
+No solicita calibración, fábrica, movimiento ni escritura de parámetros. La
+inicialización nativa sí genera tráfico de control USB: sus efectos completos
+no están validados en este dron. No se presenta como recepción USB pasiva.
+La prueba espera hasta 10 segundos por imágenes, con un límite global de 30
+segundos tras lanzar el receptor y cierre adicional acotado. Detener cancela
+la recepción. El porcentaje cuenta imágenes verificadas: 100 % requiere dos
+archivos PGM y el ZIP guardado. No representa calibración ni sensores sanos.
+
+La referencia identificada corresponde a canales INFERIORES; no demuestra
+cobertura del sensor delantero derecho. No hay calibración Mini 4 Pro disponible
+todavía. No se habilita una escritura sin conocer el contrato y su verificación.
+
+CORRECCIÓN PREVIA: MENSAJES HMS EXTENDIDOS 21/08
+La versión anterior solo interpretaba 21/06 y omitía registros 21/08 presentes
+en las tres capturas del usuario. Esta versión muestra ambos formatos.
+Puedes abrir el BIN que ya tienes con Analizar captura visión: no requiere
+conectar el dron ni repetir la prueba. La tabla mostrará procedencia de archivo.
+
+Se reconoce la cabecera de cuatro bytes y los registros TLV contados. Solo el
+registro observado tag 0 / longitud 20 expone un código candidato uint32 LE.
+Los demás tipos se conservan opacos. Campos de estado, índice, nivel, componente
+y fecha de esos registros no se interpretan: sus valores quedan en bruto.
+La tabla muestra referencia del SDK y actividad DESCONOCIDA. Los códigos de
+referencia de calibración inferior/posterior/izquierda/derecha presentes en los
+registros no confirman por sí solos averías activas o necesidad de calibración.
+Las referencias históricas del SDK no son un mapa de diagnóstico Mini 4 Pro validado.
+
+Validación adicional: 121 mensajes 21/08, 234 cuerpos tag0/20 y un registro de otro
+tipo preservado en las tres capturas. El EXE reanaliza esos archivos bajo Wine.
+La petición USB sigue siendo una sola 21/05 payload 01, sin cambios de modo.
+
+NUEVO: DIAGNÓSTICO VISIÓN (HMS) — PRUEBA EXPERIMENTAL
+1. Conecta el Mini 4 Pro encendido en modo normal y cierra otros clientes USB.
+2. En Visión Mini 4 Pro escribe 01.00.1100 en Firmware declarado, si coincide
+   con la versión de aeronave que muestra DJI Fly.
+3. Pulsa Diagnóstico visión (HMS) y guarda un archivo NUEVO .bin.
+4. Espera la apertura y ocho segundos de escucha; comparte el ZIP
+   Mini4Pro-HMS-....zip que se crea junto al BIN, incluso si no recibe HMS.
+
+Envía UNA solicitud 21/05, payload 01, al servicio HMS según la herramienta
+original; solicita publicación de estados. No repite envíos ni entra en fábrica.
+El soporte HMS en modo normal con Mini 4 Pro/01.00.1100 todavía requiere prueba.
+Los registros 21/06 se agrupan por emisor/ciclo. Se comprueban versión, longitud,
+CRC, fragmentos, cierre, duplicados y contradicciones antes de contar ciclos.
+La tabla muestra código, emisor, índice bruto, nivel bruto y completitud.
+Algunos códigos muestran una referencia del SDK, sin validación específica de
+Mini 4 Pro o de su actividad. No se asignan automáticamente a sensores físicos.
+Un índice HMS no es el selector de la consulta SN ni una posición física confirmada.
+Un ciclo vacío, silencio o ausencia de códigos no demuestran sensores sanos.
+Un formato desconocido conserva bytes e incidencias; no produce diagnóstico sano.
+El 100 % mide tiempo de escucha completado, no diagnóstico o calibración.
+
+La solicitud activa publicación HMS; no escribe datos de calibración/firmware.
+No se envía la orden de desuscripción/reset global usada en el SDK público porque
+puede afectar a otros suscriptores. El estado de publicación después de cerrar
+USB se registra como desconocido. Se conserva el modo normal y el controlador.
+No se inicia calibración, autotest, borrado, movimiento de motores o cambio de modo.
+
+CONSULTAR SN VISIÓN (PRUEBA)
+1. Conecta el Mini 4 Pro encendido en modo normal. Cierra DJI Assistant y otros
+   clientes USB del PC para evitar lectores concurrentes. Conserva el controlador.
+2. Abre Visión Mini 4 Pro y escribe 01.00.1100 en Firmware declarado si es la
+   versión de aeronave mostrada por DJI Fly.
+3. Pulsa Consultar SN visión (prueba) y elige un archivo NUEVO .bin.
+4. Espera a que termine. Son cuatro ventanas de hasta tres segundos; el límite
+   global después de abrir USB es 15 segundos, con lecturas de hasta 200 ms.
+5. Comparte el ZIP Mini4Pro-SN-....zip creado automáticamente junto al .bin.
+   Contiene la recepción y DJI-REPAIR-informe.json, incluyendo TX y errores.
+
+Esta acción sí envía hasta cuatro consultas de número de serie: selectores
+04, 08, 40 y 80 de la familia 24/26, una vez por selector, sin reintentos.
+No envía órdenes de fábrica, calibración, configuración o firmware.
+Las peticiones coinciden con 188 consultas históricas de lectura de SN; su
+lectura se observó en dos pruebas aportadas por el usuario con cuatro SN estables.
+Eso no valida otros equipos ni identifica salud o calibración.
+No se cambian modos automáticamente aunque no haya respuesta.
+
+La tabla Consulta SN (prueba) muestra SN OBSERVADOS, o sin SN reconocido.
+No se presentan como identidad confirmada ni diagnóstico de salud. El filtro
+original ignora la secuencia; el informe conserva tiempos, secuencias, baseline,
+selectores y tramas para estudiar la correlación. Las posiciones son etiquetas
+históricas, no una asignación física verificada en esta aeronave.
+Si aparecen SN distintos para un mismo selector, el resultado es ambiguo.
+Cero respuestas no demuestra avería. El estado desconocido puede permanecer
+incluso si hay SN observados: no se convierte una observación en diagnóstico.
+El 100 % significa cuatro ventanas completadas, no sensores sanos o calibrados.
+Detener conserva recepción y resultados parciales. Un envío fallido puede haber
+llegado parcialmente al dispositivo: se registra entrega desconocida y se detiene.
+No repite automáticamente la petición ni prueba otro modo o interfaz.
+
+ARCHIVOS Y RECEPCIÓN PASIVA
+Capturar USB pasivo conserva su comportamiento de 1.2.6: solo recibe IN 85,
+interfaz MI04, sin enviar consultas de servicio. Tiempo seleccionable 5/10 segundos.
+HMS, SN y captura pasiva guardan hasta 1 MiB y generan ZIP automático, también
+si fallan. HMS escucha ocho segundos después de enviar, con límite de 10000
+lecturas; una lectura USB en curso puede terminar después del plazo.
+No sobrescriben archivos ni suben datos a Internet. El informe local puede
+contener números de serie; revísalo antes de publicarlo.
+La interfaz puede informar BULK Interface; se verifica el producto Mini 4 Pro
+del padre USB físico asociado al alias. Se mantienen todas las comprobaciones
+de VID/PID, configuración, clase y endpoints. Se utiliza libusb0_device existente,
+sin instalar, sustituir, desprender o reiniciar controladores.
+
+Importar carpeta/ZIP inventaría archivos sin ejecutar código o extraer ZIP.
+Analizar captura visión interpreta bytes, HEX o registros DJI Test GB18030.
+La tabla Sensores del registro convierte el formato histórico 24/26; se contrastó
+con 184 números de serie de los registros, sin afirmar identidad actual.
+MD5/SHA-256 comprueban integridad de archivos, no compatibilidad o autenticidad.
+La comprobación opcional de servidor solo sondea TCP/TLS de una URL HTTPS
+introducida manualmente, sin autenticación, descarga ni direcciones históricas.
+
+LÍMITES
+El lector HMS no constituye diagnóstico de salud validado ni calibración óptica Mini 4 Pro.
+Descarga/instalación de calibraciones y otras operaciones Mini 4 Pro deshabilitadas.
+Los otros modelos conservan funciones previas y límites de firmware/calibración.
+No se añade movimiento manual por ejes ni escritura IMU fija. Detener una lectura
+no detiene motores en las funciones antiguas. Lee sus avisos antes de calibrar.
+Solo Recibir imágenes usa DLL del motor local en su receptor aislado. No se
+redistribuyen binarios DJI ni se usan credenciales o elude autenticación.
+
+VALIDACIÓN
+280 pruebas de aplicación/interfaz y resultados de empaquetado incluidos.
+El receptor x86 está validado estáticamente y con adaptadores sintéticos; su
+arranque no se pudo probar aquí porque el kernel no permite procesos de 32 bits.
+Su primera recepción real requiere tu Windows y el dron. No se han ejecutado
+bibliotecas DJI en el entorno de desarrollo.
+Las cuatro peticiones reconstruidas se contrastaron contra 188 tramas históricas.
+El usuario probó la recepción pasiva 1.2.6: 6123 bytes, 104 tramas válidas; se
+reanalizó el binario. Eso no valida las nuevas consultas activas.
+Las dos capturas SN 1.3.0 se reanalizaron: 272/267 tramas, 4 SN estables y CRC
+válidos. No contenían datos HMS. La lectura HMS necesita su propia prueba física.
+El EXE se prueba bajo Wine con USB simulado; no hay dron conectado a este entorno
+ni prueba local de Windows nativo. Consulta validacion-1.6.0.json, documentación,
+fuentes/ y licencias/. Recompilación Windows: fuentes/build_windows.ps1.
+Se conserva el manifiesto Common Controls v6 para el error ordinal 380.

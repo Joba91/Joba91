@@ -10,14 +10,17 @@ class VisionView(ttk.Frame):
         self.reports={};self.url=tk.StringVar();self.timeout=tk.StringVar(value='5')
         self.format=tk.StringVar(value='auto');self.source=tk.StringVar(value='Ningún paquete importado')
         self.firmware=tk.StringVar();self.capture_seconds=tk.StringVar(value='5')
+        self.engine_directory=tk.StringVar();self.image_references=[];self.image_sources={};self.image_scale=None
         self.columnconfigure(0,weight=1);self.rowconfigure(4,weight=1)
         ttk.Label(self,text='Mini 4 Pro · visión, SN y diagnóstico HMS experimental',font=('Segoe UI',12,'bold')).grid(row=0,column=0,sticky='w')
         ttk.Label(self,text='Conserva modo normal y cierra otros clientes USB. Diagnóstico HMS solicita publicación de estados; su soporte en Mini 4 Pro está pendiente de prueba. Presenta códigos y niveles, sin afirmar salud o calibración.',wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
-        self.states=ttk.Treeview(self,columns=('state','detail'),show='tree headings',height=7)
+        state_area=ttk.Frame(self);state_area.grid(row=2,column=0,sticky='ew',pady=5);state_area.columnconfigure(0,weight=1)
+        self.states=ttk.Treeview(state_area,columns=('state','detail'),show='tree headings',height=3)
         self.states.heading('#0',text='Comprobación');self.states.column('#0',width=130,minwidth=110,stretch=False)
         self.states.heading('state',text='Estado');self.states.column('state',width=105,stretch=False)
         self.states.heading('detail',text='Resultado / procedencia');self.states.column('detail',width=460)
-        self.states.grid(row=2,column=0,sticky='ew',pady=5)
+        self.states.grid(row=0,column=0,sticky='ew')
+        state_scroll=ttk.Scrollbar(state_area,command=self.states.yview);state_scroll.grid(row=0,column=1,sticky='ns');self.states.configure(yscrollcommand=state_scroll.set)
         form=ttk.Frame(self);form.grid(row=3,column=0,sticky='ew');form.columnconfigure(1,weight=1)
         ttk.Label(form,text='Servidor autorizado (HTTPS)').grid(row=0,column=0,sticky='w')
         url_entry=ttk.Entry(form,textvariable=self.url);url_entry.grid(row=0,column=1,sticky='ew',padx=8)
@@ -31,8 +34,22 @@ class VisionView(ttk.Frame):
         ttk.Label(form,text='Captura pasiva (s)').grid(row=2,column=2)
         capture_entry=ttk.Combobox(form,textvariable=self.capture_seconds,values=('5','10'),state='readonly',width=5);capture_entry.grid(row=2,column=3)
         self.controls.extend([(firmware_entry,'normal'),(capture_entry,'readonly')])
+        ttk.Label(form,text='Motor Consumer (DJIEngine)').grid(row=3,column=0,sticky='w',pady=4)
+        engine_entry=ttk.Entry(form,textvariable=self.engine_directory);engine_entry.grid(row=3,column=1,columnspan=3,sticky='ew',padx=8)
+        self.controls.append((engine_entry,'normal'))
         tabs=ttk.Notebook(self);tabs.grid(row=4,column=0,sticky='nsew',pady=5)
         self.tabs=tabs
+        image_page=ttk.Frame(tabs);image_page.columnconfigure(0,weight=1);image_page.columnconfigure(1,weight=1)
+        tabs.add(image_page,text='Imágenes (prueba)');self.image_page=image_page
+        image_page.rowconfigure(2,weight=1)
+        image_page.bind('<Configure>',lambda event:self.resize_previews())
+        self.image_summary=tk.StringVar(value='Recibir imágenes (prueba) usa el motor Consumer local y guarda dos canales inferiores. No calibra.')
+        ttk.Label(image_page,textvariable=self.image_summary,wraplength=810).grid(row=0,column=0,columnspan=2,sticky='w',pady=5)
+        self.image_labels=[]
+        for index,label in enumerate(('raw/down/left','raw/down/right')):
+            ttk.Label(image_page,text=label).grid(row=1,column=index,pady=3)
+            view=ttk.Label(image_page,text='Sin fotograma recibido',anchor='center');view.grid(row=2,column=index,sticky='nsew',padx=4,pady=4);self.image_labels.append(view)
+        ttk.Label(image_page,text='Los canales siguen la referencia del motor. Las imágenes no confirman identidad, salud ni calibración.',wraplength=810).grid(row=3,column=0,columnspan=2,sticky='w',pady=5)
         diagnostic=ttk.Frame(tabs);diagnostic.columnconfigure(0,weight=1);diagnostic.rowconfigure(1,weight=1)
         tabs.add(diagnostic,text='Diagnóstico HMS');self.hms_page=diagnostic
         self.hms_summary=tk.StringVar(value='Pulsa Diagnóstico visión (HMS). Solicita estados y escucha 8 segundos; no inicia calibración.')
@@ -84,6 +101,19 @@ class VisionView(ttk.Frame):
 
     def apply_report(self,category,data):
         self.reports[category]=data
+        if category=='images':
+            self.image_references=[];self.image_sources={};self.image_scale=None
+            for label in self.image_labels:label.configure(image='',text='Sin fotograma recibido')
+            self.image_summary.set(data.get('detail','Sin resultado de imágenes.'))
+            roles={'raw/down/left':0,'raw/down/right':1}
+            for frame in data.get('frames',[]):
+                try:
+                    index=roles[frame['topic']]
+                    self.image_sources[index]=tk.PhotoImage(file=frame['image_path'])
+                except (tk.TclError,KeyError):
+                    self.image_summary.set(data.get('detail','')+' Vista previa no disponible; consulta el ZIP.')
+            self.tabs.select(self.image_page)
+            self.resize_previews()
         if category in ('diagnostic','capture'):
             hms=data.get('hms',{})
             self.hms_records.delete(*self.hms_records.get_children())
@@ -132,6 +162,18 @@ class VisionView(ttk.Frame):
         self.details.configure(state='normal');self.details.delete('1.0','end')
         self.details.insert('1.0',json.dumps(preview,ensure_ascii=False,indent=2));self.details.configure(state='disabled')
 
+    def resize_previews(self):
+        if not self.image_sources:return
+        import math
+        width=max(64,(self.image_page.winfo_width()-24)//2)
+        height=max(48,self.image_page.winfo_height()-110)
+        scale=max(2,math.ceil(640/width),math.ceil(480/height))
+        if scale==self.image_scale:return
+        self.image_scale=scale;self.image_references=[]
+        for index,original in self.image_sources.items():
+            photo=original.subsample(scale);self.image_references.append(photo)
+            self.image_labels[index].configure(image=photo,text='')
+
     def refresh_states(self):
         self.states.delete(*self.states.get_children())
         identity=self.reports.get('identity',UnavailableIdentification().identify().to_dict())
@@ -139,7 +181,7 @@ class VisionView(ttk.Frame):
         compatibility=LocalCalibrationProvider().compatibility(package,None).to_dict()
         unknown={'state':'desconocido','detail':'Sin datos; utiliza las acciones del lateral.'}
         source={'state':'confirmado' if 'files' in package else package.get('state','desconocido'),'detail':package.get('source','Ningún paquete importado')}
-        rows=[('Identificación',identity),('Procedencia',source),('Integridad MD5',package.get('integrity',package if package else unknown)),
+        rows=[('Identificación',identity),('Imágenes',self.reports.get('images',unknown)),('Procedencia',source),('Integridad MD5',package.get('integrity',package if package else unknown)),
               ('Compatibilidad',compatibility),('Captura',self.reports.get('capture',unknown)),
               ('Diagnóstico HMS',self.reports.get('diagnostic',unknown)),('Servidor',self.reports.get('server',unknown))]
         for title,data in rows:self.states.insert('', 'end',text=title,values=(data['state'],data['detail']))
