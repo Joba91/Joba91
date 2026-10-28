@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-28",
+  "analysis": "static_only",
+  "native_code_executed": false,
+  "usb_operations": 0,
+  "consumer_dll_sha256": "7105076d6c72e50b823d0bec9c7696c2aa7fdd50578361e68dec3a838bf41044",
+  "profile_factory": {
+    "function_va": "0x1008d190",
+    "wa140": {
+      "branch_va": "0x1008d9ef-0x1008dbe6",
+      "configured_pair_count": 1,
+      "calibration_file": "cali_ab.txt",
+      "image_topics": [
+        "raw/down/left",
+        "raw/down/right"
+      ],
+      "image_dimensions": [
+        640,
+        480
+      ],
+      "front_right_profile_present_in_this_branch": false
+    },
+    "comparison_only_not_a_substitute": {
+      "model": "ag701",
+      "configured_pair_count": 2,
+      "additional_topics": [
+        "raw/front/left",
+        "raw/front/right"
+      ]
+    }
+  },
+  "native_message_commands": [
+    "vision_calibration_close",
+    "vision_calibration_config_screen_size",
+    "vision_calibration_enter_match_rect",
+    "vision_calibration_enter_track",
+    "vision_calibration_init",
+    "vision_calibration_open",
+    "vision_calibration_set_cam_pair",
+    "vision_calibration_set_screen_size",
+    "vision_calibration_start_calculation",
+    "vision_calibration_stop",
+    "vision_calibration_window_cmd"
+  ],
+  "initialization_fields": [
+    "WIDTH",
+    "HEIGHT",
+    "SCREEN_WIDTH",
+    "SCREEN_HEIGHT",
+    "DEVICE",
+    "VERSION"
+  ],
+  "pair_selector": "Selects from existing configured pair list; is not a new model/position definition.",
+  "constraints": {
+    "physical_image_reception_tested_by_user": false,
+    "native_frame_source_compatible": null,
+    "front_right_generator_identified": false,
+    "validated_parameter_installation_and_readback": false,
+    "calibration_enabled": false
+  },
+  "write_path_correction": {
+    "direct_eeprom_call_va": "0x100bf3e2",
+    "outer_model_guards": [
+      "ag701",
+      "ag601"
+    ],
+    "wa140_direct_eeprom_path_proven": false,
+    "note": "Earlier generic EEPROM routine observations must not be attributed to wa140 without tracing its separate transfer route."
+  },
+  "watchdog": {
+    "function_va": "0x100d8b00",
+    "shared_memory_bytes": 32007,
+    "header_marker": "aa",
+    "maximum_payload_bytes": 32000,
+    "heartbeat_change_required": true,
+    "full_host_contract_validated": false
+  },
+  "limits": "Static branch evidence is specific to this exact DLL. It does not prove that other tools or onboard services cannot calibrate front-right vision."
+}
