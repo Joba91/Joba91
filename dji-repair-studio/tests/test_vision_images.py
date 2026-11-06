@@ -98,6 +98,50 @@ class ImageTests(unittest.TestCase):
         parsed = receiver.parse_image_metadata(metadata())
         self.assertEqual((parsed['width'], parsed['height'], parsed['payload_bytes']), (640, 480, 307200))
 
+    def test_user_observed_timeout_is_not_interpreted_as_sensor_failure(self):
+        # Reduced values from the supplied 1.6.0 report; no unit identifiers.
+        summary = images.reception_observations({'native_status_counts': {'0xd0010003': 48},
+                                                  'all_native_peers_online': True})
+        self.assertEqual(summary['wait_data_timeout_count'], 48)
+        self.assertFalse(summary['timeout_proves_sensor_fault'])
+        self.assertFalse(summary['peers_online_proves_image_delivery'])
+        self.assertFalse(summary['image_producer_activation_requested'])
+
+    def test_uninterpreted_native_receive_status_stops_instead_of_retrying(self):
+        calls = []
+        class UnknownStatus(FakeAPI):
+            def receive(self, handle, timestamp):
+                calls.append(handle)
+                return None, 0xd0010042
+        result = receiver.run_job(self.job(), api_factory=UnknownStatus)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(result['state'], 'error')
+        self.assertFalse(result['completed'])
+        self.assertEqual(result['frames'], [])
+        self.assertIn('0xd0010042', result['error'])
+
+    def test_native_success_without_an_image_is_not_reported_as_delivery(self):
+        class MissingImage(FakeAPI):
+            def receive(self, handle, timestamp):
+                return None, 0
+        result = receiver.run_job(self.job(), api_factory=MissingImage)
+        self.assertFalse(result['completed'])
+        self.assertEqual(result['state'], 'error')
+
+    def test_timeout_only_session_is_saved_with_a_specific_explanation(self):
+        def timeout(job):
+            sid = json.loads(job.read_text())['session_id']
+            data = {'session_id':sid, 'frames':[], 'completed':False, 'state':'desconocido',
+                    'all_native_peers_online':True,'native_status_counts':{'0xd0010003':48}}
+            (job.parent/'result.json').write_text(json.dumps(data))
+            return FinishedProcess()
+        result = images.capture_images(self.root/'timeout-data.zip', self.fixture.sdk, '01.00.1100',
+                                       preflight=lambda:{}, launcher=timeout)
+        self.assertEqual(result['state'], 'desconocido')
+        self.assertEqual(result['reception_observations']['wait_data_timeout_count'], 48)
+        self.assertFalse(result['completed'])
+        self.assertIn('agotó la espera', result['detail'])
+
     def test_nonreference_formats_are_rejected_before_reading_pixels(self):
         for offset, value in [(6, 0), (8, 0), (14, 16), (24, 1)]:
             b = bytearray(metadata())

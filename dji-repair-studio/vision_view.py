@@ -3,6 +3,7 @@ import json
 import tkinter as tk
 from tkinter import ttk
 from vision_interfaces import UnavailableIdentification, LocalCalibrationProvider
+from vision_targets import TARGETS
 
 class VisionView(ttk.Frame):
     def __init__(self,master):
@@ -11,9 +12,11 @@ class VisionView(ttk.Frame):
         self.format=tk.StringVar(value='auto');self.source=tk.StringVar(value='Ningún paquete importado')
         self.firmware=tk.StringVar();self.capture_seconds=tk.StringVar(value='5')
         self.engine_directory=tk.StringVar();self.image_references=[];self.image_sources={};self.image_scale=None
+        self.target_model='Mini 4 Pro';self.firmware_by_model={'Mini 4 Pro':'','Air 3':TARGETS['Air 3']['firmware_declared']}
         self.columnconfigure(0,weight=1);self.rowconfigure(4,weight=1)
-        ttk.Label(self,text='Mini 4 Pro · visión, SN y diagnóstico HMS experimental',font=('Segoe UI',12,'bold')).grid(row=0,column=0,sticky='w')
-        ttk.Label(self,text='Conserva modo normal y cierra otros clientes USB. Diagnóstico HMS solicita publicación de estados; su soporte en Mini 4 Pro está pendiente de prueba. Presenta códigos y niveles, sin afirmar salud o calibración.',wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
+        self.heading=ttk.Label(self,text='Mini 4 Pro · visión, SN y diagnóstico HMS experimental',font=('Segoe UI',12,'bold'));self.heading.grid(row=0,column=0,sticky='w')
+        self.context_note=tk.StringVar(value='Mini 4 Pro: captura USB, SN, HMS y recepción de imágenes experimentales. La calibración de visión todavía no está implementada.')
+        ttk.Label(self,textvariable=self.context_note,wraplength=860).grid(row=1,column=0,sticky='w',pady=(4,6))
         state_area=ttk.Frame(self);state_area.grid(row=2,column=0,sticky='ew',pady=5);state_area.columnconfigure(0,weight=1)
         self.states=ttk.Treeview(state_area,columns=('state','detail'),show='tree headings',height=3)
         self.states.heading('#0',text='Comprobación');self.states.column('#0',width=130,minwidth=110,stretch=False)
@@ -39,6 +42,17 @@ class VisionView(ttk.Frame):
         self.controls.append((engine_entry,'normal'))
         tabs=ttk.Notebook(self);tabs.grid(row=4,column=0,sticky='nsew',pady=5)
         self.tabs=tabs
+        usb_page=ttk.Frame(tabs);usb_page.columnconfigure(0,weight=1);usb_page.rowconfigure(1,weight=1)
+        tabs.add(usb_page,text='Perfil USB');self.usb_profile_page=usb_page
+        self.usb_profile_summary=tk.StringVar(value='Recopilar perfil USB consulta dispositivos y controladores presentes en Windows. No consulta sensores ni calibra.')
+        ttk.Label(usb_page,textvariable=self.usb_profile_summary,wraplength=810).grid(row=0,column=0,sticky='w',pady=5)
+        self.usb_nodes=ttk.Treeview(usb_page,columns=('name','service','status'),show='tree headings',height=5)
+        self.usb_nodes.heading('#0',text='Nodo / interfaz');self.usb_nodes.column('#0',width=100)
+        for key,label,width in [('name','Nombre informado',390),('service','Controlador',140),('status','Estado Windows',110)]:
+            self.usb_nodes.heading(key,text=label);self.usb_nodes.column(key,width=width)
+        self.usb_nodes.grid(row=1,column=0,sticky='nsew')
+        usb_scroll=ttk.Scrollbar(usb_page,command=self.usb_nodes.yview);usb_scroll.grid(row=1,column=1,sticky='ns');self.usb_nodes.configure(yscrollcommand=usb_scroll.set)
+        ttk.Label(usb_page,text='Un nombre o estado OK de Windows no acredita endpoints, recepción de imágenes ni compatibilidad de calibración.',wraplength=810).grid(row=2,column=0,sticky='w',pady=5)
         image_page=ttk.Frame(tabs);image_page.columnconfigure(0,weight=1);image_page.columnconfigure(1,weight=1)
         tabs.add(image_page,text='Imágenes (prueba)');self.image_page=image_page
         image_page.rowconfigure(2,weight=1)
@@ -96,11 +110,20 @@ class VisionView(ttk.Frame):
         detail=ttk.Frame(tabs);detail.columnconfigure(0,weight=1);detail.rowconfigure(0,weight=1);tabs.add(detail,text='Resultados y evidencia')
         self.details=tk.Text(detail,wrap='word',font=('Consolas',9),state='disabled');self.details.grid(row=0,column=0,sticky='nsew')
         scroll=ttk.Scrollbar(detail,command=self.details.yview);scroll.grid(row=0,column=1,sticky='ns');self.details.configure(yscrollcommand=scroll.set)
-        ttk.Label(self,text='HMS, SN y captura pasiva crean un ZIP local con recepción e informe. Comparte el ZIP generado para revisar la prueba. Guardar informe exporta JSON.',wraplength=850).grid(row=5,column=0,sticky='w',pady=5)
+        ttk.Label(self,text='Las pruebas generan un ZIP local con resultados e informe. Compártelo para revisar la recepción o el perfil USB. Guardar informe exporta JSON.',wraplength=850).grid(row=5,column=0,sticky='w',pady=5)
         self.refresh_states()
 
     def apply_report(self,category,data):
         self.reports[category]=data
+        if category=='usb_profile':
+            self.usb_profile_summary.set(data.get('detail','Sin resultado de inventario USB.'))
+            self.usb_nodes.delete(*self.usb_nodes.get_children())
+            import re
+            for row in data.get('devices',[]):
+                match=re.search(r'&MI_([0-9A-F]{2})',row['instance_id'],re.I)
+                label='MI'+match[1].upper() if match else 'Padre USB'
+                self.usb_nodes.insert('','end',text=label,values=(row.get('bus_product') or row.get('friendly_name') or '—',row.get('service') or '—',row.get('status') or '—'))
+            self.tabs.select(self.usb_profile_page)
         if category=='images':
             self.image_references=[];self.image_sources={};self.image_scale=None
             for label in self.image_labels:label.configure(image='',text='Sin fotograma recibido')
@@ -162,6 +185,26 @@ class VisionView(ttk.Frame):
         self.details.configure(state='normal');self.details.delete('1.0','end')
         self.details.insert('1.0',json.dumps(preview,ensure_ascii=False,indent=2));self.details.configure(state='disabled')
 
+    def set_target(self,model):
+        if model==self.target_model:return
+        self.firmware_by_model[self.target_model]=self.firmware.get()
+        self.target_model=model;self.firmware.set(self.firmware_by_model[model]);self.reports={}
+        self.heading.configure(text=model+' · proyecto de calibración de visión · pendiente')
+        self.context_note.set('Air 3: firmware declarado 01.00.1600. Recopilar perfil USB consulta metadatos presentes de Windows. Recepción de sensores y calibración aún no implementadas.' if model=='Air 3' else
+            'Mini 4 Pro: captura USB, SN, HMS y recepción de imágenes experimentales. La calibración de visión todavía no está implementada.')
+        self.image_sources={};self.image_references=[];self.image_scale=None
+        for label in self.image_labels:label.configure(image='',text='Sin fotograma recibido')
+        for tree in (self.usb_nodes,self.hms_records,self.current_sensor_records,self.inventory,self.sensor_records):
+            tree.delete(*tree.get_children())
+        self.image_summary.set('Calibración pendiente para '+model+'. Los resultados del otro modelo se han separado.')
+        self.usb_profile_summary.set('Pulsa Recopilar perfil USB para '+model+'. Consulta metadatos de Windows; no calibra.')
+        self.hms_summary.set('Sin consulta HMS para '+model+'.')
+        self.current_sensor_summary.set('Sin consulta SN para '+model+'.')
+        self.source.set('Sin archivos importados para '+model+'.')
+        self.details.configure(state='normal');self.details.delete('1.0','end');self.details.configure(state='disabled')
+        self.refresh_states()
+        if model=='Air 3':self.tabs.select(self.usb_profile_page)
+
     def resize_previews(self):
         if not self.image_sources:return
         import math
@@ -176,12 +219,13 @@ class VisionView(ttk.Frame):
 
     def refresh_states(self):
         self.states.delete(*self.states.get_children())
-        identity=self.reports.get('identity',UnavailableIdentification().identify().to_dict())
+        identity=self.reports.get('identity',UnavailableIdentification().identify().to_dict() if self.target_model=='Mini 4 Pro' else
+            {'state':'desconocido','detail':'Air 3: firmware declarado 01.00.1600; perfil USB y protocolo de visión pendientes de contraste.'})
         package=self.reports.get('package',{})
         compatibility=LocalCalibrationProvider().compatibility(package,None).to_dict()
         unknown={'state':'desconocido','detail':'Sin datos; utiliza las acciones del lateral.'}
         source={'state':'confirmado' if 'files' in package else package.get('state','desconocido'),'detail':package.get('source','Ningún paquete importado')}
-        rows=[('Identificación',identity),('Imágenes',self.reports.get('images',unknown)),('Procedencia',source),('Integridad MD5',package.get('integrity',package if package else unknown)),
+        rows=[('Identificación',identity),('Perfil USB',self.reports.get('usb_profile',unknown)),('Imágenes',self.reports.get('images',unknown)),('Procedencia',source),('Integridad MD5',package.get('integrity',package if package else unknown)),
               ('Compatibilidad',compatibility),('Captura',self.reports.get('capture',unknown)),
               ('Diagnóstico HMS',self.reports.get('diagnostic',unknown)),('Servidor',self.reports.get('server',unknown))]
         for title,data in rows:self.states.insert('', 'end',text=title,values=(data['state'],data['detail']))

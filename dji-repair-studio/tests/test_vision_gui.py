@@ -7,7 +7,7 @@ import tkinter as tk
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from studio_app import StudioApp,SN_ACTION,HMS_ACTION,IMAGE_ACTION,VISION_ACTIONS,VERSION
+from studio_app import StudioApp,SN_ACTION,HMS_ACTION,IMAGE_ACTION,USB_PROFILE_ACTION,VISION_ACTIONS,VERSION
 from test_vision import USER_FRAME
 
 @unittest.skipUnless(os.environ.get('DISPLAY') or os.name=='nt','Requires a graphical display')
@@ -151,6 +151,52 @@ class VisionGuiTests(unittest.TestCase):
             self.app.dispatch(SN_ACTION)
         error.assert_called_once();probe.assert_not_called();save.assert_not_called()
         self.assertFalse(self.app.running)
+
+    def test_air3_keeps_selected_model_and_cannot_run_mini4_or_gimbal_commands(self):
+        self.app.model.set('Air 3')
+        self.app.after(150,self.app.quit);self.app.mainloop()
+        self.assertEqual(self.app.vision.firmware.get(),'01.00.1600')
+        self.assertIn('Air 3',self.app.vision.heading.cget('text'))
+        with patch('studio_app.messagebox.showerror'),patch('studio_app.messagebox.showinfo'),patch('studio_app.capture_images') as images,patch('studio_app.probe_hms') as hms,patch('studio_app.backend.open_serial_port') as legacy,patch('studio_app.filedialog.asksaveasfilename') as save:
+            for action in (IMAGE_ACTION,SN_ACTION,HMS_ACTION,'Capturar USB pasivo','JointCoarse','Entrar modo fabrica','Identificar'):
+                self.app.dispatch(action)
+            images.assert_not_called();hms.assert_not_called();legacy.assert_not_called();save.assert_not_called()
+        self.assertEqual(self.app.model.get(),'Air 3')
+        self.assertFalse(self.app.running)
+
+    def test_model_switch_separates_firmware_and_previous_sensor_results(self):
+        self.app.model.set('Mini 4 Pro');self.app.vision.firmware.set('01.00.1100')
+        self.app.vision.reports['images']={'state':'desconocido','detail':'Mini4 previous session'}
+        self.app.vision.hms_records.insert('','end',text='synthetic previous row')
+        self.app.model.set('Air 3')
+        self.assertEqual(self.app.vision.reports,{})
+        self.assertEqual(len(self.app.vision.hms_records.get_children()),0)
+        self.app.model.set('Mini 4 Pro')
+        self.assertEqual(self.app.vision.firmware.get(),'01.00.1100')
+
+    def test_air3_metadata_inventory_is_bundled_in_the_same_interface(self):
+        from test_vision_usb_inventory import inventory,node
+        from vision_usb_inventory import collect_usb_profile
+        self.app.model.set('Air 3');destination=self.root/'air3-profile.zip'
+        def run(*args,**kwargs):
+            return collect_usb_profile(*args,**kwargs,collector=lambda **unused:inventory(node()))
+        with patch('studio_app.collect_usb_profile',side_effect=run),patch('studio_app.filedialog.asksaveasfilename',return_value=str(destination)),patch('studio_app.backend.open_serial_port') as legacy:
+            self.app.dispatch(USB_PROFILE_ACTION);self.wait_idle()
+        legacy.assert_not_called()
+        self.app.after(150,self.app.quit);self.app.mainloop()
+        self.assertEqual(self.app.model.get(),'Air 3')
+        self.assertEqual(self.app.report['modelo_declarado'],'Air 3')
+        self.assertEqual(len(self.app.vision.usb_nodes.get_children()),1)
+        self.assertEqual(self.app.vision.tabs.select(),str(self.app.vision.usb_profile_page))
+        self.assertEqual(self.app.progress_value.get(),100)
+        self.assertTrue(destination.is_file())
+        self.assertFalse(self.app.vision.reports['usb_profile']['calibration_available'])
+        self.assertFalse(any(isinstance(w,tk.Toplevel) for w in self.app.winfo_children()))
+
+    def test_metadata_inventory_requires_firmware_before_file_dialog(self):
+        with patch('studio_app.messagebox.showerror') as error,patch('studio_app.collect_usb_profile') as collect,patch('studio_app.filedialog.asksaveasfilename') as save:
+            self.app.dispatch(USB_PROFILE_ACTION)
+        error.assert_called_once();collect.assert_not_called();save.assert_not_called()
     def test_image_receiver_requires_firmware_before_file_dialog_or_usb(self):
         with patch('studio_app.messagebox.showerror') as error,patch('studio_app.capture_images') as probe,patch('studio_app.filedialog.asksaveasfilename') as save:
             self.app.dispatch(IMAGE_ACTION)

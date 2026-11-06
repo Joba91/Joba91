@@ -1,7 +1,7 @@
 DJI REPAIR Studio
 
 Base y motor de servicio: archivos facilitados por el usuario.
-Interfaz unificada: studio_app.py y launch.py, versión 1.6.0.
+Interfaz unificada: studio_app.py y launch.py, versión 1.7.0.
 Protocolos de calibración: reimplementación a partir del material MyMavCaliTool3 /
 YanDron suministrado por el usuario. No se ejecutan ni distribuyen sus DLL .NET.
 No se incluye su bloque fijo de escritura IMU.
@@ -89,3 +89,12 @@ calibración. La inicialización nativa implica tráfico USB de control cuyos
 efectos requieren prueba física. La configuración y las DLL no se empaquetan.
 Las imágenes usadas por las pruebas y la captura de interfaz son sintéticas
 y se identifican como tales; no se presentan como una recepción del dron.
+
+Revisión 1.7.0: destino Air 3 independiente, firmware 01.00.1600 declarado por
+el usuario, y vision_usb_inventory.py con consultas PnP fijas de Windows.
+No se reutiliza un perfil de sensores de otro modelo. El script se verifica con
+PowerShell oficial 7.4.6 (hash publicado cotejado) y cmdlets sintéticos en Linux.
+Windows PowerShell/PnpDevice lo proporciona el sistema del usuario y no se
+redistribuye. La prueba real Mini 4 Pro de 1.6.0 acredita arranque x86 y SDK;
+no obtuvo fotogramas. Los campos de esa prueba publicados son resúmenes sin
+identificadores; el ZIP original no se añade a la distribución.

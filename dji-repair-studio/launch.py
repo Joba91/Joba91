@@ -165,6 +165,25 @@ def main():
                     'reset_all_commands':hms_report['global_unsubscribe_commands_sent'],
                     'receiver_closed':hms_receiver.closed,'last_percent':hms_progress[-1]['percent'],
                     'support_bundle':hms_bundle_ok,'real_usb_opened':False}}
+            # Explicit Air 3 test data; no Windows queries or sensor commands.
+            from vision_usb_inventory import collect_usb_profile
+            app.model.set('Air 3');app.update()
+            synthetic_pnp={'schema':1,'source':'windows_pnp_present','devices':[{
+                'instance_id':'USB\\VID_2CA3&PID_0020\\SYNTHETIC','friendly_name':'Synthetic Air 3',
+                'bus_product':'DJI Air 3-SYNTHETIC','parent':'SYNTHETIC_PARENT','service':'usbccgp',
+                'hardware_ids':['USB\\VID_2CA3&PID_0020'],'problem_code':0,'status':'OK'}]}
+            pnp=collect_usb_profile(root/'air3-metadata.zip','Air 3',app.vision.firmware.get(),
+                collector=lambda **unused:synthetic_pnp)
+            app.vision.apply_report('usb_profile',pnp)
+            app.update()
+            from studio_app import MINI4_ACTIVE_ACTIONS
+            disabled=[action for button,action in zip(app.operation_buttons,app.operation_actions)
+                if action in MINI4_ACTIVE_ACTIONS and str(button['state'])=='disabled']
+            vision_report['air3_metadata_synthetic_test']={'model':app.model.get(),
+                'firmware_declared':app.vision.firmware.get(),'ui_rows':len(app.vision.usb_nodes.get_children()),
+                'mini4_actions_blocked':len(disabled),'service_commands_sent':pnp['service_commands_sent'],
+                'endpoints_verified':pnp['usb_endpoints_verified'],'calibration_available':pnp['calibration_available'],
+                'real_pnp_queries':0,'real_usb_opened':False,'support_bundle':Path(pnp['support_bundle']).is_file()}
         report = {
             'interfaz': app.title(),
             'ventanas_principales': 1 + sum(isinstance(w, tk.Toplevel) for w in app.winfo_children()),
@@ -260,7 +279,9 @@ def main():
             import time
             with tempfile.TemporaryDirectory(prefix='dji-supervisor-test-') as folder:
                 marker=Path(folder)/'ready.txt'
-                worker=start_hidden_process([sys.executable,'--process-supervisor-worker',str(marker)],folder)
+                command=[sys.executable]
+                if not getattr(sys,'frozen',False):command.append(str(Path(__file__).resolve()))
+                worker=start_hidden_process(command+['--process-supervisor-worker',str(marker)],folder)
                 try:
                     deadline=time.monotonic()+10
                     while not marker.is_file() and worker.poll() is None and time.monotonic()<deadline:

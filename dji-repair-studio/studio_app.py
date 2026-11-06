@@ -21,17 +21,20 @@ from vision_support_bundle import write_support_bundle
 from vision_sensor_query import query_sensor_serials
 from vision_hms_query import probe_hms
 from vision_images import capture_images, default_engine_directory
+from vision_targets import TARGETS, MINI4_ACTIVE_ACTIONS, require_active_profile
+from vision_usb_inventory import collect_usb_profile, validate_firmware
+from studio_version import VERSION
 from pathlib import Path
 
-VERSION = '1.6.0'
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
-          'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Mini 5 Pro')
+          'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Air 3','Mini 5 Pro')
 PROFILE_CODES = {'Mavic 3':'WM260','Mavic 3 Cine':'WM260','Mavic 4 Pro':'MAVIC4PRO','Mini 5 Pro':'MT5MFND'}
 CALIBRATION_ACTIONS = ('JointCoarse','LinearHall','Entrar modo fabrica','Salir modo fabrica','Escuchar progreso (20 s)')
 SN_ACTION='Consultar SN visión (prueba)'
 HMS_ACTION='Diagnóstico visión (HMS)'
 IMAGE_ACTION='Recibir imágenes (prueba)'
-VISION_ACTIONS = ('Importar carpeta visión','Importar ZIP visión','Analizar captura visión','Capturar USB pasivo','Comprobar servidor visión',SN_ACTION,HMS_ACTION,IMAGE_ACTION)
+USB_PROFILE_ACTION='Recopilar perfil USB'
+VISION_ACTIONS = ('Importar carpeta visión','Importar ZIP visión','Analizar captura visión','Capturar USB pasivo','Comprobar servidor visión',SN_ACTION,HMS_ACTION,IMAGE_ACTION,USB_PROFILE_ACTION)
 
 class ProgressState:
     """No time-based inference of motor/calibration completion."""
@@ -124,10 +127,10 @@ class StudioApp(tk.Tk):
                 ('CALIBRACIÓN DEL GIMBAL',[('JointCoarse','JointCoarse'),('LinearHall','LinearHall'),('Entrar en modo fábrica','Entrar modo fabrica'),('Salir del modo fábrica','Salir modo fabrica'),('Escuchar progreso · 20 s','Escuchar progreso (20 s)')]),
                 ('OPERACIONES AVANZADAS',[('Ejecutar parámetros','Parámetros'),('Ejecutar cámara','Cámara'),('Calibración heredada','Gimbal heredado')]),
                 ('HERRAMIENTAS SIN CONEXIÓN',[('Analizar paquete HEX','Analizar'),('Generar paquete','Generar'),('Convertir HEX a texto','Convertir')]),
-                ('VISIÓN · MINI 4 PRO',[(name,name) for name in VISION_ACTIONS])]
+                ('VISIÓN · MINI 4 PRO / AIR 3',[(name,name) for name in VISION_ACTIONS])]
         for heading,items in groups:
             label=ttk.Label(actions,text=heading,font=('Segoe UI',9,'bold'));label.pack(anchor='w',pady=(6,3))
-            if heading=='VISIÓN · MINI 4 PRO':self.vision_action_heading=label
+            if heading=='VISIÓN · MINI 4 PRO / AIR 3':self.vision_action_heading=label
             for label,action in items:
                 b=ttk.Button(actions,text=label,style='Action.TButton',command=lambda a=action:self.dispatch(a));b.pack(fill='x',pady=1);self.operation_buttons.append(b);self.operation_actions.append(action)
         bottom=ttk.Frame(sidebar);bottom.grid(row=1,column=0,columnspan=2,sticky='ew',pady=(8,0))
@@ -138,7 +141,7 @@ class StudioApp(tk.Tk):
         self.pages={}
         for name in ('Registro','Calibración','Parámetros','Cámara','Paquetes','Conversor'):
             page=ttk.Frame(self.tabs,padding=10);self.tabs.add(page,text=name);self.pages[name]=page
-        self.vision=VisionView(self.tabs);self.tabs.add(self.vision,text='Visión Mini 4 Pro');self.pages['Visión Mini 4 Pro']=self.vision
+        self.vision=VisionView(self.tabs);self.tabs.add(self.vision,text='Visión de sensores');self.pages['Visión Mini 4 Pro']=self.vision
         self.config_controls.extend(self.vision.controls)
         self.tabs.bind('<<NotebookTabChanged>>',self.reveal_actions)
         self._build_log();self._build_calibration();self._build_advanced();self._build_packets()
@@ -216,7 +219,7 @@ class StudioApp(tk.Tk):
     def select_page(self,name):self.tabs.select(self.pages[name])
     def reveal_actions(self,event=None):
         if self.tabs.select()==str(self.vision):
-            if not self.running and self.model.get()!='Mini 4 Pro':self.model.set('Mini 4 Pro')
+            if not self.running and self.model.get() not in TARGETS:self.model.set('Mini 4 Pro')
             self.after(40,self.scroll_vision_actions)
     def scroll_vision_actions(self):
         if self.tabs.select()==str(self.vision):
@@ -280,9 +283,9 @@ class StudioApp(tk.Tk):
         if self.running:return
         if action in VISION_ACTIONS:self.dispatch_vision(action);return
         if action in ('Analizar','Generar','Convertir'):self.offline(action);return
-        if self.model.get()=='Mini 4 Pro':
+        if self.model.get() in TARGETS:
             self.select_page('Visión Mini 4 Pro')
-            messagebox.showinfo('Mini 4 Pro · visión','Usa Capturar USB pasivo o Consultar SN visión (prueba) en Visión Mini 4 Pro. La prueba SN no confirma salud. Calibración no habilitada.',parent=self)
+            messagebox.showinfo('Visión de sensores',self.model.get()+': usa las operaciones de visión habilitadas en el lateral. Calibración de visión todavía no implementada.',parent=self)
             return
         try:
             po=self.settings();options=None
@@ -309,10 +312,16 @@ class StudioApp(tk.Tk):
 
     def dispatch_vision(self,action):
         self.select_page('Visión Mini 4 Pro')
-        self.model.set('Mini 4 Pro')
-        snapshot={'format':self.vision.format.get()}
+        if self.model.get() not in TARGETS:self.model.set('Mini 4 Pro')
+        snapshot={'format':self.vision.format.get(),'model':self.model.get()}
         try:
-            if action==IMAGE_ACTION:
+            if action in MINI4_ACTIVE_ACTIONS:require_active_profile(snapshot['model'])
+            if action==USB_PROFILE_ACTION:
+                snapshot['firmware']=validate_firmware(self.vision.firmware.get().strip())
+                snapshot['path']=filedialog.asksaveasfilename(parent=self,title='Guardar inventario USB de Windows (no calibra)',
+                    defaultextension='.zip',initialfile=snapshot['model'].replace(' ','')+time.strftime('-PerfilUSB-%Y%m%d-%H%M%S.zip'),
+                    filetypes=[('Inventario e informe','*.zip')])
+            elif action==IMAGE_ACTION:
                 snapshot['firmware']=self.vision.firmware.get().strip()
                 if snapshot['firmware']!=DECLARED_FIRMWARE:raise ValueError('Escribe el firmware declarado 01.00.1100 para esta prueba.')
                 directory=self.vision.engine_directory.get().strip() or default_engine_directory()
@@ -342,7 +351,7 @@ class StudioApp(tk.Tk):
             if 'path' in snapshot and not snapshot['path']:return
         except ValueError as exc:messagebox.showerror('Configuración de visión',str(exc),parent=self);return
         self.running=True;self.stop.clear();self.progress_state.reset()
-        self.report={'herramienta':'DJI REPAIR Studio','version':VERSION,'accion':action,'modelo_declarado':'Mini 4 Pro',
+        self.report={'herramienta':'DJI REPAIR Studio','version':VERSION,'accion':action,'modelo_declarado':snapshot['model'],
                      'firmware_declarado':snapshot.get('firmware',''),
                      'fecha_unix':time.time(),'resultado':None,'paquetes':[],'progreso':[],'vision':dict(self.vision.reports)}
         self._set_busy(True,action!='Comprobar servidor visión')
@@ -353,7 +362,11 @@ class StudioApp(tk.Tk):
 
     def vision_worker(self,action,snapshot):
         try:
-            if action==IMAGE_ACTION:
+            if action==USB_PROFILE_ACTION:
+                data=collect_usb_profile(snapshot['path'],snapshot['model'],snapshot['firmware'],
+                    cancelled=self.stop.is_set,progress=lambda e:self.events.put(('progress',e)))
+                category='usb_profile';state=data['state'];detail=data['detail']
+            elif action==IMAGE_ACTION:
                 data=capture_images(snapshot['path'],snapshot['engine'],snapshot['firmware'],
                     cancelled=self.stop.is_set,progress=lambda e:self.events.put(('progress',e)))
                 category='images';state=data['state'];detail=data['detail']
@@ -417,7 +430,7 @@ class StudioApp(tk.Tk):
             self.events.put(('vision',{'category':category,'data':data}))
             self.events.put(('error' if state=='error' else 'result',{'estado':state,'detalle':detail}))
         except Exception as exc:
-            category='images' if action==IMAGE_ACTION else 'diagnostic' if action==HMS_ACTION else 'package' if action.startswith('Importar') else 'capture' if action in ('Analizar captura visión','Capturar USB pasivo') else 'server' if action=='Comprobar servidor visión' else 'identity'
+            category='usb_profile' if action==USB_PROFILE_ACTION else 'images' if action==IMAGE_ACTION else 'diagnostic' if action==HMS_ACTION else 'package' if action.startswith('Importar') else 'capture' if action in ('Analizar captura visión','Capturar USB pasivo') else 'server' if action=='Comprobar servidor visión' else 'identity'
             data={'state':'error','detail':str(exc),'source':'Operación local o sondeo solicitado'}
             self.events.put(('vision',{'category':category,'data':data}))
             self.events.put(('error',{'estado':'error','detalle':str(exc)}))
@@ -430,13 +443,16 @@ class StudioApp(tk.Tk):
 
     def sync_operation_buttons(self,busy):
         for button,action in zip(self.operation_buttons,self.operation_actions):
-            blocked=self.model.get()=='Mini 4 Pro' and action not in VISION_ACTIONS+('Analizar','Generar','Convertir')
+            blocked=self.model.get() in TARGETS and action not in VISION_ACTIONS+('Analizar','Generar','Convertir')
+            blocked=blocked or (self.model.get()=='Air 3' and action in MINI4_ACTIVE_ACTIONS)
             button.configure(state='disabled' if busy or blocked else 'normal')
 
     def model_changed(self,*args):
         self.sync_operation_buttons(self.running)
-        self.connection_text.set('Mini 4 Pro: USB, consulta SN y diagnóstico HMS experimental' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
-        if self.model.get()=='Mini 4 Pro' and not self.running:self.select_page('Visión Mini 4 Pro')
+        self.connection_text.set('Air 3 · 01.00.1600 declarado · perfil USB y calibración pendientes' if self.model.get()=='Air 3' else 'Mini 4 Pro: USB, consulta SN y diagnóstico HMS experimental' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
+        if self.model.get() in TARGETS:
+            self.vision.set_target(self.model.get())
+            if not self.running:self.select_page('Visión Mini 4 Pro')
 
     def worker(self,action,po,advanced=None):
         transport=None;session=None;client=None

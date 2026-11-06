@@ -21,6 +21,7 @@ WIDTH, HEIGHT = 640, 480
 EXTRA_SIZE = 196
 PGM_HEADER = b'P5\n640 480\n255\n'
 MAX_JOB_BYTES = 16384
+WAIT_TIMEOUT = 0xD0010003
 
 
 def digest(path):
@@ -181,7 +182,9 @@ def run_job(job_file, api_factory=NativeReceiver):
               'calibration_commands_requested': 0, 'parameter_writes_requested': 0,
               'native_usb_traffic_bytes': None, 'native_initialization_effects_validated_on_hardware': False,
               'device_identity_from_image_confirmed': False, 'health': 'desconocido',
-              'calibration_performed': False, 'native_status_counts': {}, 'cleanup_codes': []}
+              'calibration_performed': False, 'native_status_counts': {}, 'cleanup_codes': [],
+              'initialization_returned_success': False, 'subscriptions_created': 0,
+              'image_producer_activation_requested': False}
     api = None
     started = time.monotonic()
     events = (root / 'events.jsonl').open('x', encoding='utf-8')
@@ -197,10 +200,14 @@ def run_job(job_file, api_factory=NativeReceiver):
         api = api_factory(runtime)
         result['native_initialization_started'] = True
         api.initialize()
+        result['initialization_returned_success'] = True
         if (root / 'stop.flag').exists():
             raise InterruptedError('Recepción cancelada antes de suscribirse a las imágenes.')
         result['all_native_peers_online'] = bool(api.lib.ss_dbus_all_peer_node_is_online()) if hasattr(api, 'lib') else None
-        handles = {topic: api.subscribe(topic) for topic in TOPICS}
+        handles = {}
+        for topic in TOPICS:
+            handles[topic] = api.subscribe(topic)
+            result['subscriptions_created'] = len(handles)
         stamps = {topic: ctypes.c_uint32(0xffffffff) for topic in TOPICS}
         deadline = time.monotonic() + job['seconds']
         emit('recepcion_de_imagenes')
@@ -215,7 +222,11 @@ def run_job(job_file, api_factory=NativeReceiver):
                 received, code = api.receive(handle, stamps[topic])
                 key = f'0x{code:08x}'
                 result['native_status_counts'][key] = result['native_status_counts'].get(key, 0) + 1
+                if code not in (0, WAIT_TIMEOUT):
+                    raise RuntimeError(f'La recepción devolvió un estado nativo no interpretado: {key}.')
                 if received is None:
+                    if code == 0:
+                        raise ValueError('El receptor declaró éxito sin devolver una imagen.')
                     continue
                 metadata, pixels = received
                 # Validate again at the file boundary, independent of the FFI adapter.

@@ -1,8 +1,8 @@
 {
   "machine": "x86",
-  "bytes": 10726709,
-  "sha256": "97e55fa9afebc3c2806afbd0c9a026a9d775392bcb27b521ebf2a1fdca8911ae",
-  "source_sha256": "edcb9f07a325befcb7b2d6b8303f150062dde393ecdecd20aa0113f9984c4736",
+  "bytes": 10727163,
+  "sha256": "b9364c2dc2635133d1aa94fd696ac95eb0358d6ca4ca1e8025e8ed6d1795d86d",
+  "source_sha256": "123b3f8866b06885386f890183f1a098577c48c041aac714619a7caeb64f7e49",
   "entry_sha256": "9a2359bc3ed108b85646ec6c78d3b20679e8877ca803ab1cc692ce3d69f4d1a8",
   "assets": [
     {
@@ -56,12 +56,12 @@
     },
     {
       "name": "PYZ.pyz",
-      "sha256": "890d934a584a5d87838f5cc8acf90799de4a567d65e5315e3e3e7c87e1cd975f",
-      "bytes": 11270
+      "sha256": "5bbccbe3a2a1d1736b3f426378b990da1539f8dfdc57f6b27aa39c23a2511253",
+      "bytes": 11649
     },
     {
       "name": "base_library.zip",
-      "sha256": "7c07cc9912af84e072df5facab844dca51ec1776fa6661f2133c96e33f615ec8",
+      "sha256": "566822fc919a707e75bf2be0fe185519e7d19f14e0acf9b409970089aab73174",
       "bytes": 4409904
     },
     {

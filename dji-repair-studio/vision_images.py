@@ -10,7 +10,23 @@ import time
 import uuid
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
-from vision_image_receiver import validate_runtime, TOPICS, FIRMWARE, PGM_HEADER, WIDTH, HEIGHT, digest
+from vision_image_receiver import validate_runtime, TOPICS, FIRMWARE, PGM_HEADER, WIDTH, HEIGHT, digest, WAIT_TIMEOUT
+
+
+def reception_observations(native):
+    counts = native.get('native_status_counts', {})
+    if not isinstance(counts, dict) or len(counts) > 32:
+        raise ValueError('Contadores nativos inválidos.')
+    for code, count in counts.items():
+        if not isinstance(code, str) or type(count) is not int or not 0 <= count <= 100000:
+            raise ValueError('Código o contador nativo inválido.')
+    timeouts = counts.get(f'0x{WAIT_TIMEOUT:08x}', 0)
+    return {'wait_data_timeout_count': timeouts,
+            'wait_data_timeout_code': f'0x{WAIT_TIMEOUT:08x}',
+            'sdk_peers_online_claim': native.get('all_native_peers_online'),
+            'peers_online_proves_image_delivery': False,
+            'image_producer_activation_requested': native.get('image_producer_activation_requested', False),
+            'timeout_proves_sensor_fault': False}
 
 
 def default_engine_directory():
@@ -186,9 +202,13 @@ def capture_images(output_zip, engine, firmware, cancelled=lambda: False, progre
                     shutil.copyfileobj(src, out)
                 row['image_path'] = str(destination)
             report.update(frames=rows, native_result=native)
+            report['reception_observations'] = reception_observations(native)
             complete = exit_code == 0 and native.get('completed') is True and len(rows) == 2 and not timed_out and not cancelled()
             report['state'] = 'confirmado' if complete else 'error' if native.get('state') == 'error' or exit_code else 'desconocido'
             report['detail'] = f'Recepción: {len(rows)}/2 imágenes verificadas. No se realizó calibración.'
+            if not rows and report['reception_observations']['wait_data_timeout_count']:
+                report['detail'] += (' El SDK agotó la espera de imágenes; no demuestra una avería del sensor. '
+                                     'La prueba no solicitó activar el productor nativo de imágenes.')
             if native.get('error'):
                 report['detail'] += ' ' + native['error']
             if native.get('cleanup_error'):
