@@ -1,4 +1,4 @@
-# Visión Mini 4 Pro · DJI REPAIR Studio 1.7.0
+# Visión Mini 4 Pro · DJI REPAIR Studio 1.7.1
 
 La prueba recibida de 1.6.0 arrancó el receptor x86 pero no obtuvo imágenes: 48 esperas `0xd0010003`. Consulta [estado actual](ESTADO-VISION-2026-11-06.md).
 
@@ -227,7 +227,7 @@ independientes `vision_sensor_records.py`/`studio_protocol.py`. La interfaz usa 
 único trabajador y raíz Tk; mantiene activas solo las acciones Mini 4 Pro previstas.
 La consulta no abre automáticamente al arrancar, importar o elegir un modelo.
 
-299 pruebas de aplicación/interfaz, pruebas de empaquetado y arranque bajo Wine.
+315 pruebas de aplicación/interfaz, pruebas de empaquetado y arranque bajo Wine.
 Los tests cubren solicitudes históricas, perfil equivocado, paquetes inválidos,
 selector ajeno, fragmentos, silencio, conflicto de SN, cancelación, límites,
 envío corto/timeout, desconexión, error de disco/cierre, UI y ZIP con TX/RX.
@@ -237,5 +237,5 @@ ensayos SN son evidencia aportada por el usuario, no hardware conectado al entor
 Wine comprueba además una suscripción HMS simulada, dos ciclos de referencia y
 un registro sin descripción validada, la tabla y el ZIP. Las fuentes públicas
 OSDK se consultan como referencia, no como garantía de compatibilidad Mini 4 Pro.
-Ver `validacion-1.7.0.json`, resultados incluidos y
+Ver `validacion-1.7.1.json`, resultados incluidos y
 [análisis de DLL y registros](INVESTIGACION-REGISTROS-MINI4PRO.md).

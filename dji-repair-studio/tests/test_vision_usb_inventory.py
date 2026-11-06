@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch, Mock
 from zipfile import ZipFile
 from vision_targets import require_active_profile
-from vision_usb_inventory import collect_usb_profile, product_family, validate_inventory, query_windows_pnp, PNP_SCRIPT
+from vision_usb_inventory import collect_usb_profile, product_family, validate_inventory
 
 
 def node(instance='USB\\VID_2CA3&PID_0020\\SYNTHETIC', product='DJI Air 3-SYNTHETIC'):
@@ -83,15 +83,6 @@ class InventoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             collect_usb_profile(self.root/'bad.zip','Air 3','unknown',collector=call)
         call.assert_not_called();self.assertEqual(p.read_bytes(),b'keep')
-    def test_windows_command_is_fixed_and_captures_json_without_shell(self):
-        child=Mock();child.communicate.return_value=(json.dumps(inventory(node())).encode(),b'')
-        child.returncode=0;child.poll.return_value=0
-        with patch('vision_usb_inventory.sys.platform','win32'),patch('vision_usb_inventory.Path.is_file',return_value=True),patch('vision_usb_inventory.subprocess.CREATE_NO_WINDOW',0x08000000,create=True),patch('vision_usb_inventory.subprocess.Popen',return_value=child) as start:
-            self.assertEqual(query_windows_pnp()['schema'],1)
-        args=start.call_args.args[0]
-        self.assertEqual(args[-1],PNP_SCRIPT)
-        self.assertNotIn('shell',start.call_args.kwargs)
-        self.assertNotIn('ExecutionPolicy',args)
 
 
 if __name__=='__main__':unittest.main()

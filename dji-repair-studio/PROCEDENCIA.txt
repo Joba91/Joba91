@@ -1,7 +1,7 @@
 DJI REPAIR Studio
 
 Base y motor de servicio: archivos facilitados por el usuario.
-Interfaz unificada: studio_app.py y launch.py, versión 1.7.0.
+Interfaz unificada: studio_app.py y launch.py, versión 1.7.1.
 Protocolos de calibración: reimplementación a partir del material MyMavCaliTool3 /
 YanDron suministrado por el usuario. No se ejecutan ni distribuyen sus DLL .NET.
 No se incluye su bloque fijo de escritura IMU.
@@ -98,3 +98,11 @@ Windows PowerShell/PnpDevice lo proporciona el sistema del usuario y no se
 redistribuye. La prueba real Mini 4 Pro de 1.6.0 acredita arranque x86 y SDK;
 no obtuvo fotogramas. Los campos de esa prueba publicados son resúmenes sin
 identificadores; el ZIP original no se añade a la distribución.
+
+Revisión 1.7.1: se retira el recopilador PowerShell de ejecución. El lector
+propio vision_windows_pnp.py enlaza solo APIs de consulta CfgMgr32. Declaraciones
+contrastadas con Microsoft win32metadata, cfgmgr32.h y devpkey.h; no se copian
+ni distribuyen esas cabeceras. Filtro USB presente, límites, instantáneas atómicas
+y proceso x64 propio oculto, supervisado por JobObject. No carga SDK DJI ni
+modifica controladores. Se prueban el ABI con fixtures y el proceso bajo Wine.
+El fallo de inventario 1.7.0 recibido no identifica el Air 3 ni un fallo físico.

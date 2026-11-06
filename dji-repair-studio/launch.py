@@ -5,6 +5,9 @@ import tkinter as tk
 from pathlib import Path
 
 def main():
+    if '--usb-inventory-worker' in sys.argv:
+        from vision_windows_pnp import inventory_worker
+        raise SystemExit(inventory_worker(sys.argv[sys.argv.index('--usb-inventory-worker')+1]))
     if '--process-supervisor-worker' in sys.argv:
         import time
         path=Path(sys.argv[sys.argv.index('--process-supervisor-worker')+1])
@@ -293,6 +296,48 @@ def main():
                         'real_usb_opened':False,'dji_code_loaded':False}
                 finally:
                     worker.close()
+            from vision_windows_pnp import windows_inventory_api, native_inventory, DEVPROPKEY
+            windows_inventory_api()
+            class SyntheticInventory(SyntheticParent):
+                ids = 'USB\\VID_2CA3&PID_0020\\SYNTHETIC\0\0'
+                def CM_Get_Device_ID_List_SizeW(self, out, enumerator, flags):
+                    assert enumerator == 'USB' and flags == 0x101
+                    ctypes.cast(out, ctypes.POINTER(ctypes.c_uint32))[0] = len(self.ids)
+                    return 0
+                def CM_Get_Device_ID_ListW(self, enumerator, out, size, flags):
+                    assert enumerator == 'USB' and flags == 0x101
+                    for i, char in enumerate(self.ids): out[i] = char
+                    return 0
+                def CM_Get_DevNode_PropertyW(self, node, key, kind, out, size, flags):
+                    key = ctypes.cast(key, ctypes.POINTER(DEVPROPKEY)).contents
+                    bus = key.fmtid.data1 == 0x540b947e
+                    value = 'DJI Air 3-SYNTHETIC' if bus else {14:'Synthetic fixture',6:'usbccgp',3:'USB\\VID_2CA3&PID_0020\0'}[key.pid]
+                    data = (value+'\0').encode('utf-16-le')
+                    ctypes.cast(kind,ctypes.POINTER(ctypes.c_uint32))[0] = 0x2012 if not bus and key.pid==3 else 0x12
+                    ctypes.cast(size,ctypes.POINTER(ctypes.c_uint32))[0] = len(data)
+                    ctypes.memmove(out, data, len(data)); return 0
+                def CM_Get_DevNode_Status(self, status, problem, node, flags):
+                    ctypes.cast(status,ctypes.POINTER(ctypes.c_uint32))[0] = 0x2000
+                    ctypes.cast(problem,ctypes.POINTER(ctypes.c_uint32))[0] = 0
+                    return 0
+            synthetic_native = native_inventory(api_factory=SyntheticInventory)
+            assert synthetic_native['collection_complete'] and not synthetic_native['property_errors']
+            synthetic_row = synthetic_native['devices'][0]
+            assert synthetic_row['hardware_ids'] == ['USB\\VID_2CA3&PID_0020']
+            assert synthetic_row['bus_product'] == 'DJI Air 3-SYNTHETIC'
+            report['native_pnp_abi_synthetic_test'] = {'wchar_bytes':ctypes.sizeof(ctypes.c_wchar),
+                'device_count':len(synthetic_native['devices']), 'hardware_id_count':len(synthetic_row['hardware_ids']),
+                'collection_complete':True, 'real_pnp_queries':0}
+            from vision_usb_inventory import query_windows_pnp
+            native_pnp = query_windows_pnp()
+            assert native_pnp['collector_backend'] == 'cfgmgr32'
+            assert 'worker_exit_code' in native_pnp
+            report['native_pnp_worker_test'] = {
+                'backend': 'cfgmgr32', 'worker_exit_code': native_pnp['worker_exit_code'],
+                'collection_complete': native_pnp['collection_complete'],
+                'stage': native_pnp['stage'], 'device_count': len(native_pnp['devices']),
+                'error': native_pnp.get('error'), 'dji_code_loaded': False,
+                'drone_service_commands': 0, 'real_dji_hardware_tested': False}
             if '--smoke-test-receiver' in sys.argv:
                 with tempfile.TemporaryDirectory(prefix='dji-receiver-smoke-') as folder:
                     destination=Path(folder)/'self-test.json'

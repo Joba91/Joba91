@@ -62,3 +62,12 @@ La versión no presenta progreso 100, un descriptor, un ACK ni códigos HMS como
 prueba de calibración. Los SDK recibidos permanecen privados y se analizan sin
 ejecutarlos en cloud. El nuevo EXE se valida con fuentes, pruebas y evidencia
 propias; no se reemplaza un procedimiento faltante con una orden adivinada.
+
+## Corrección del recopilador 1.7.1
+
+El ZIP Air3-PerfilUSB del 6 de noviembre contiene solo el informe 1.7.0:
+Windows no terminó la consulta PnP en 25 segundos; no hay nodos ni interfaces.
+No permite inferir un fallo del dron. 1.7.1 usa lectura directa CfgMgr32 en un
+proceso oculto supervisado y conserva la última etapa y los nodos parciales en
+caso de cancelación o espera vencida. No se implementó calibración en esta
+corrección. El siguiente dato necesario es el perfil obtenido con este lector.

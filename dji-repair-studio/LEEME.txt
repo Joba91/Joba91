@@ -1,6 +1,6 @@
-DJI REPAIR STUDIO 1.7.0 — Windows 10/11 x64
+DJI REPAIR STUDIO 1.7.1 — Windows 10/11 x64
 
-Extrae el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.7.0.exe.
+Extrae el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.7.1.exe.
 La aplicación mantiene una ventana, botones laterales y progreso medido.
 La calibración óptica Mini 4 Pro / Air 3 todavía NO está implementada.
 
@@ -14,7 +14,9 @@ AIR 3 — PERFIL DE CONEXIÓN PENDIENTE
 
 Esta acción consulta metadatos PnP del sistema. No carga el SDK DJI, no consulta
 sensores ni envía peticiones de servicio, y no cambia controladores o modos.
-Requiere Windows PowerShell incluido en Windows 10/11 y su módulo PnpDevice.
+1.7.1 usa CfgMgr32 del sistema; no requiere PowerShell, WMI o PnpDevice.
+Corrige el recopilador anterior que agotó 25 segundos sin devolver nodos.
+Si se detiene, conserva nodos parciales y la última etapa en el ZIP.
 El 100 % significa que se leyó y guardó el inventario: la compatibilidad de
 calibración permanece desconocida. El firmware se declara, no se lee del dron.
 
@@ -30,7 +32,7 @@ El informe no contiene imágenes: hubo 48 tiempos de espera 0xd0010003 durante
 la biblioteca recibida. No demuestra una avería, salud o calibración.
 No hace falta repetir esa misma prueba para revisar el resultado ya recibido.
 
-1.7.0 explica ese resultado y detiene estados nativos no interpretados. El
+1.7.1 explica ese resultado y detiene estados nativos no interpretados. El
 SDK puede informar pares conectados sin entregar imágenes. La referencia
 Consumer también solicita arrancar un servicio de percepción antes de recibir;
 el receptor 1.6.0 no hizo esa solicitud. Sus efectos y contrato de activación
@@ -54,13 +56,18 @@ Las funciones previas de los otros modelos conservan sus límites y avisos.
 No se añaden movimientos por ejes o una calibración nueva de IMU/gimbal.
 
 VALIDACIÓN Y FUENTES
-299 pruebas de aplicación/interfaz y 11 de empaquetado aprobadas. El EXE x64 se
+315 pruebas de aplicación/interfaz y 11 de empaquetado aprobadas. El EXE x64 se
 comprueba bajo Wine con datos sintéticos y registros históricos, sin USB real.
-El recopilador PowerShell pasa el analizador oficial 7.4.6 y una ejecución con
-cmdlets sintéticos en Linux; aún requiere prueba con PnP real de Windows/Air 3.
+El lector CfgMgr32 se verifica con fixtures del ABI y su proceso oculto bajo
+Wine. Sigue pendiente su prueba con PnP real de Windows/Air 3.
 El usuario ya acreditó el arranque x86 de 1.6.0. El kernel cloud no permite IA32;
-el receptor 1.7.0 se verifica estáticamente y mediante adaptadores sintéticos.
+el receptor 1.7.1 se verifica estáticamente y mediante adaptadores sintéticos.
 No se ejecutan bibliotecas DJI en desarrollo ni se redistribuyen binarios,
 configuraciones, registros o números de serie originales del usuario.
-Consulta validacion-1.7.0.json, VISION-AIR3.md y ESTADO-VISION-2026-11-06.md.
+Consulta validacion-1.7.1.json, VISION-AIR3.md y ESTADO-VISION-2026-11-06.md.
 Fuentes y licencias incluidas. Recompilación: fuentes/build_windows.ps1.
+
+Límite de la prueba Wine 1.7.1: el proceso del EXE arranca y guarda su resultado,
+pero CfgMgr32 de Wine devuelve tamaño de lista USB 0. Se conserva como error;
+no se presenta como inventario Windows válido. El ABI WCHAR de 2 bytes y las
+propiedades se verifican además con un fixture sintético dentro del EXE.
