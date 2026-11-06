@@ -1,59 +1,52 @@
-# Air 3 · proyecto de calibración de visión
+# Air 3 · visión en desarrollo · versión 1.7.2
 
-Firmware de aeronave **01.00.1600 declarado por el usuario** el 6 de noviembre
-de 2026. La selección del Air 3 y recopilación de metadatos están implementadas;
-**la calibración de visión y el transporte de sus sensores aún no**.
+Firmware 01.00.1600 declarado por el usuario. La calibración óptica no está
+implementada y el transporte de sensores aún no está validado.
 
-## Obtener su perfil real
+## Inventario recibido de Windows
 
-1. Conecta solo el **Air 3** al PC y selecciónalo en el programa 1.7.1.
-2. En **Visión de sensores**, revisa el firmware declarado.
-3. Pulsa **Recopilar perfil USB** y guarda `Air3-PerfilUSB-....zip` nuevo.
-4. Comparte el ZIP incluso si informa un error.
+Studio 1.7.1 terminó su proceso de lectura con código 0 y obtuvo ocho nodos PnP:
+- Un padre físico 2CA3:0020, servicio usbccgp, producto con prefijo `e3t`.
+- MI00: RNDIS, servicio usbrndis6.
+- MI02: Mass Storage, servicio libusb0.
+- MI03, MI04, MI05, MI06 y MI07: BULK Interface, servicio libusb0_device.
 
-Se usa CfgMgr32 directamente, con filtro USB/presente antes de leer propiedades
-de nodos DJI. No se invoca PowerShell o WMI. Se recogen:
-nombre informado por el bus, padre, HardwareID, servicio del controlador, estado
-y código de problema. Solo se admiten nodos USB del proveedor `2CA3`, con límites
-de registros, tamaños y tiempo. No se carga el SDK DJI ni se envían solicitudes
-de sensores, cambios de configuración, modos o controladores.
+Todos los códigos PnP de problema son cero. Siete consultas FriendlyName devolvieron
+CR_NO_SUCH_VALUE (0x25); se usó DeviceDesc como alternativa y la lectura terminó.
+No es un fallo de sensores. No hay direcciones de endpoints en ese informe.
+`e3t` es el texto observado; Air 3 es el modelo declarado. Falta una referencia
+que acredite esa asociación comercial. No se usa el prefijo para enviar comandos.
 
-Los datos no demuestran endpoints ni autenticidad del modelo. Un único nombre
-de padre USB coincidente se registra como coincidencia de descriptor, no como
-identidad autenticada o compatibilidad de calibración. Air 3S y otros modelos no
-se aceptan como Air 3 por coincidencia parcial. Múltiples padres quedan ambiguos.
+## Obtener los descriptores con 1.7.2
 
-El ZIP puede mostrar estado general desconocido aunque el inventario se haya
-leído: lo desconocido es la compatibilidad de sensores/calibración. El 100 %
-cuenta inventario guardado, no calibración. No hay subida automática de datos.
+1. Extrae el ZIP nuevo y abre su EXE.
+2. Conecta solo el Air 3; selecciónalo con firmware declarado 01.00.1600.
+3. Visión de sensores → Recopilar perfil USB → guarda un ZIP nuevo.
+4. Comparte el ZIP incluso si muestra error. Cierra otras herramientas DJI si
+   mantienen ocupado el dispositivo; no se pide cambiar controladores.
 
-## Separación del Mini 4 Pro
+El proceso oculto conserva el PnP obtenido y añade `descriptor_inventory`.
+La biblioteca libusb0 incluida se comprueba por SHA-256 antes de cargarla.
+Su enumeración lee descriptores estándar; las consultas PyUSB posteriores usan
+la caché analizada de esa biblioteca. No se consulta configuración activa, se
+reclaman interfaces ni se realizan transferencias bulk o comandos DJI.
 
-La selección conserva firmware por modelo y limpia resultados del otro destino.
-Air 3 no puede ejecutar las peticiones Mini 4 Pro de SN, HMS, recepción MI04 ni
-imágenes nativas. Tampoco hereda calibraciones de gimbal, fábrica o parámetros
-de otros modelos. Esas rutas se bloquean en interfaz y en despacho, antes de
-abrir transportes o pedir archivos para una operación no implementada.
+Cada alias se contrasta por HardwareID y por su nodo PnP actual, que debe coincidir
+exactamente con el de esa sesión. Varios padres físicos, nodos contradictorios,
+conteos excesivos y descriptores mal formados se conservan como error. Un timeout
+mantiene los nodos y descriptores parciales y registra la última etapa.
 
-El motor recibido contiene códigos internos, pero no se asigna uno al Air 3 sin
-contrastar el equipo y la implementación. El firmware declarado no acredita el
-protocolo USB. El siguiente trabajo requiere validar su transporte y obtener
-un procedimiento de generación, instalación y comprobación de parámetros de
-visión compatible. Este inventario no satisface por sí solo esos requisitos.
+La tabla muestra Cn/An (configuración/alternativa) y endpoints observados. No
+selecciona esa configuración ni abre un transporte. El 100 % significa inventario
+guardado. El estado de calibración permanece desconocido/no disponible.
 
-## Pruebas
+## Lo que sigue pendiente
 
-Se verifican respuestas sintéticas y casos de modelo distinto, Air 3S, padres
-ambiguos, nodos repetidos, datos excesivos, cancelación, errores de Windows y
-archivos existentes. La interfaz mantiene el Air 3 seleccionado y separa datos.
-Se prueban tipos y límites del ABI CfgMgr32, MULTI_SZ, desconexión, propiedades
-no disponibles, sesiones y guardado parcial al agotar tiempo o cancelar. El EXE
-ejecuta su lector oculto bajo Wine. No se ha probado todavía con PnP real del
-Air 3/Windows. La captura recibida de 1.7.0 solo contiene el tiempo agotado del
-recopilador anterior: no acredita avería del dron. Ver
-[resultado](RESULTADO-PERFIL-AIR3-2026-11-06.md).
+Probar esta nueva lectura en el Windows del usuario, interpretar los canales
+con evidencia específica del modelo, obtener imágenes y resolver el procedimiento
+de cálculo, instalación y comprobación de calibración. No se aplican las peticiones
+Mini 4 Pro de SN/HMS, imágenes o gimbal al Air 3. El dato `bcdDevice=0x0504` es
+una revisión USB y no sustituye el firmware declarado desde DJI Fly.
 
-Límite de la prueba Wine 1.7.1: el proceso del EXE arranca y guarda su resultado,
-pero CfgMgr32 de Wine devuelve tamaño de lista USB 0. Se conserva como error;
-no se presenta como inventario Windows válido. El ABI WCHAR de 2 bytes y las
-propiedades se verifican además con un fixture sintético dentro del EXE.
+La nueva ruta se prueba con fixtures y en el EXE bajo Wine; no está validada en
+hardware Air 3. Los informes originales y los identificadores quedan privados.

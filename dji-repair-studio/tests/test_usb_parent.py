@@ -37,6 +37,13 @@ class ConfigManager:
         ctypes.memmove(out,self.raw,min(8192,len(self.raw)));return 0
 
 class ParentMetadataTests(unittest.TestCase):
+    def test_generic_alias_binding_allows_mi03_without_loosening_mi04_transport(self):
+        from vision_usb_parent import read_alias_instance_id
+        child=CHILD.replace('MI_04','MI_03')
+        raw=('\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Enum\\'+child+'\0').encode('ascii')
+        self.assertEqual(read_alias_instance_id(ALIAS_PREFIX+'0003',Kernel(raw)),child)
+        with self.assertRaisesRegex(ValueError,'MI04'):
+            read_alias_instance(ALIAS_PREFIX+'0003',Kernel(raw))
     def test_native_property_key_layout_matches_windows_sdk(self):
         self.assertEqual(ctypes.sizeof(GUID),16);self.assertEqual(ctypes.sizeof(DEVPROPKEY),20)
         self.assertEqual(ctypes.string_at(ctypes.byref(BUS_PRODUCT_KEY),20),

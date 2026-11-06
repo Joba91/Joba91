@@ -158,5 +158,13 @@ def inventory_worker(job_path):
     sid = job['session_id']; root = job_path.parent
     def snapshot(raw): atomic_json(root/'snapshot.json', {'session_id': sid, 'inventory': raw})
     raw = native_inventory(snapshot=snapshot)
+    if raw['collection_complete']:
+        from vision_usb_descriptors import collect_descriptors
+        raw['collection_complete']=False
+        def descriptor_stage(name, result):
+            raw['stage']=name; raw['descriptor_inventory']=result; snapshot(raw)
+        raw['descriptor_inventory']=collect_descriptors(raw['devices'],stage=descriptor_stage)
+        raw.update(collection_complete=True,stage='completado')
+        snapshot(raw)
     atomic_json(root/'result.json', {'session_id': sid, 'inventory': raw})
     return 0 if raw['collection_complete'] else 1

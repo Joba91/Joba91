@@ -145,6 +145,12 @@ def collect_usb_profile(output_zip, model, firmware, cancelled=lambda: False, pr
                       collection_complete=raw.get('collection_complete', True),
                       collection_stage=raw.get('stage', 'completado'),
                       property_errors=raw.get('property_errors', []))
+        if 'descriptor_inventory' in raw:
+            result['descriptor_inventory']=raw['descriptor_inventory']
+            requested=raw['descriptor_inventory'].get('standard_descriptor_reads_requested',False)
+            result['standard_descriptor_reads_requested']=requested
+            result['usb_operations_requested']=None if requested else 0
+            result['usb_operation_count_known']=not requested
         if 'worker_exit_code' in raw: result['worker_exit_code'] = raw['worker_exit_code']
         if not result['collection_complete'] or cancelled():
             result['inventory_state'] = 'incompleto'
@@ -160,7 +166,8 @@ def collect_usb_profile(output_zip, model, firmware, cancelled=lambda: False, pr
         result['detail'] = (f'Windows informa {len(rows)} nodos DJI. ' +
                             ('El nombre del único padre USB coincide con ' + model + '. ' if result['model_descriptor_matches'] else
                              'Modelo del padre USB sin coincidencia única. ') +
-                            'Los endpoints y la compatibilidad de calibración siguen pendientes de validar.')
+                            'Los endpoints y la compatibilidad de calibración siguen pendientes de validar.' +
+                            (' Descriptores estándar: '+raw['descriptor_inventory']['state']+'.' if 'descriptor_inventory' in raw else ''))
     except Exception as exc:
         result.update(state='desconocido' if isinstance(exc, InterruptedError) else 'error', detail=str(exc), error=str(exc))
     data = json.dumps({'herramienta': 'DJI REPAIR Studio', 'version': VERSION, 'fecha_unix': time.time(), 'modelo_declarado': model,

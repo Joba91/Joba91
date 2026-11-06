@@ -4,8 +4,8 @@ TARGETS = {
                    'native_reference_scope': 'Pareja inferior; sin cobertura delantera acreditada',
                    'calibration_enabled': False, 'usb_profile_observed': True},
     'Air 3': {'firmware_declared': '01.00.1600', 'native_reference': None,
-              'native_reference_scope': 'Identificador interno y perfil USB pendientes de contraste',
-              'calibration_enabled': False, 'usb_profile_observed': False},
+              'native_reference_scope': 'PnP observado con prefijo e3t; endpoints y protocolo pendientes',
+              'calibration_enabled': False, 'usb_profile_observed': True},
 }
 MINI4_ACTIVE_ACTIONS = ('Capturar USB pasivo', 'Consultar SN visión (prueba)',
                        'Diagnóstico visión (HMS)', 'Recibir imágenes (prueba)')
@@ -20,5 +20,5 @@ def target_info(model):
 def require_active_profile(model):
     info = target_info(model)
     if model != 'Mini 4 Pro' or not info['usb_profile_observed']:
-        raise ValueError('Air 3: aún falta contrastar su perfil USB y protocolo. Usa Recopilar perfil USB; no se aplicarán peticiones de Mini 4 Pro.')
+        raise ValueError('Air 3: PnP observado; faltan endpoints y protocolo de sensores contrastados. Usa Recopilar perfil USB; no se aplicarán peticiones de Mini 4 Pro.')
     return info

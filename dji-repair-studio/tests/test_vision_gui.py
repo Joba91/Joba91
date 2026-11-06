@@ -193,6 +193,21 @@ class VisionGuiTests(unittest.TestCase):
         self.assertFalse(self.app.vision.reports['usb_profile']['calibration_available'])
         self.assertFalse(any(isinstance(w,tk.Toplevel) for w in self.app.winfo_children()))
 
+    def test_descriptor_endpoints_are_visible_without_claiming_calibration(self):
+        from test_vision_usb_descriptors import ROWS,Device,CHILD
+        from vision_usb_descriptors import collect_descriptors
+        from vision_usb_inventory import collect_usb_profile
+        descriptors=collect_descriptors(ROWS,enumerate_devices=lambda:[Device()],
+            probe=lambda alias:['USB\\VID_2CA3&PID_0020&MI_03'],probe_instance=lambda alias:CHILD)
+        raw={'schema':1,'source':'windows_pnp_present','devices':ROWS,'descriptor_inventory':descriptors}
+        result=collect_usb_profile(self.root/'descriptors.zip','Air 3','01.00.1600',collector=lambda **kw:raw)
+        self.app.model.set('Air 3');self.app.vision.apply_report('usb_profile',result)
+        self.app.update()
+        rows=[self.app.vision.usb_nodes.item(i) for i in self.app.vision.usb_nodes.get_children()]
+        self.assertEqual(rows[1]['text'],'MI03')
+        self.assertEqual(rows[1]['values'][3],'C1/A0: 04 OUT, 85 IN')
+        self.assertFalse(self.app.vision.reports['usb_profile']['calibration_available'])
+
     def test_metadata_inventory_requires_firmware_before_file_dialog(self):
         with patch('studio_app.messagebox.showerror') as error,patch('studio_app.collect_usb_profile') as collect,patch('studio_app.filedialog.asksaveasfilename') as save:
             self.app.dispatch(USB_PROFILE_ACTION)

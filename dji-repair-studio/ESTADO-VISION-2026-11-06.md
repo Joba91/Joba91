@@ -71,3 +71,16 @@ No permite inferir un fallo del dron. 1.7.1 usa lectura directa CfgMgr32 en un
 proceso oculto supervisado y conserva la última etapa y los nodos parciales en
 caso de cancelación o espera vencida. No se implementó calibración en esta
 corrección. El siguiente dato necesario es el perfil obtenido con este lector.
+
+## Perfil Air 3 1.7.1 recibido y ampliación 1.7.2
+
+El nuevo ZIP de 1302 bytes contiene un informe de 5972 bytes, CRC válido.
+La consulta PnP finalizó: ocho nodos, un padre 2CA3:0020 y prefijo de producto
+e3t. MI00/MI02 y MI03–MI07 presentes; problema PnP cero. No hay endpoints en ese
+informe, ni imágenes, comandos de servicio o calibración. Las propiedades
+FriendlyName ausentes se sustituyeron por DeviceDesc; no implican avería.
+
+1.7.2 añade al mismo botón un inventario de descriptores estándar libusb0,
+asociado por nodo actual a PnP. No asigna e3t a un código interno del motor ni
+habilita operaciones activas Air 3. La lectura de descriptores requiere su prueba
+física. Este cambio no resuelve todavía la calibración de ninguno de los modelos.

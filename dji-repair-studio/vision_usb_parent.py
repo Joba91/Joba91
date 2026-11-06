@@ -27,10 +27,10 @@ class DEVPROPKEY(ctypes.Structure):
 
 BUS_PRODUCT_KEY=DEVPROPKEY(GUID(0x540b947e,0x8b40,0x45bc,(ctypes.c_ubyte*8)(0xa8,0xa2,0x6a,0x0b,0x89,0x4c,0xbd,0xa2)),4)
 
-def read_alias_instance(alias,kernel=None):
+def read_alias_instance_id(alias,kernel=None):
     alias=_alias_path(alias);kernel=kernel if kernel is not None else windows_kernel32()
     handle=kernel.CreateFileW(alias,0,0,None,3,0,None)
-    if handle in (None,ctypes.c_void_p(-1).value):raise _windows_error('No se pudo consultar el nodo PnP del alias MI04.')
+    if handle in (None,ctypes.c_void_p(-1).value):raise _windows_error('No se pudo consultar el nodo PnP del alias seleccionado.')
     try:
         request=ctypes.create_string_buffer(OBJECT_NAME_REQUEST,len(OBJECT_NAME_REQUEST))
         output=ctypes.create_string_buffer(MAX_BYTES);actual=ctypes.c_uint32()
@@ -42,11 +42,17 @@ def read_alias_instance(alias,kernel=None):
         if not raw.endswith(b'\0') or b'\0' in raw[:-1]:raise ValueError('Nombre PnP incompleto o inválido.')
         name=raw[:-1].decode('ascii',errors='strict')
         match=re.fullmatch(r'\\REGISTRY\\MACHINE\\SYSTEM\\(?:CurrentControlSet|ControlSet[0-9]{3})\\Enum\\(USB\\[^\\]+\\[^\\]+)(?:\\Device Parameters)?',name,re.I)
-        if not match or not CHILD_RE.fullmatch(match[1]):
-            raise ValueError('El nodo devuelto no acredita la interfaz MI04 del VID/PID esperado.')
+        if not match or not re.fullmatch(r'USB\\VID_2CA3&PID_0020(?:&REV_[0-9A-F]{4})?&MI_[0-9A-F]{2}\\[A-Z0-9&._+{}#-]{1,200}',match[1],re.I):
+            raise ValueError('El nodo devuelto no acredita una interfaz DJI del VID/PID esperado.')
         return match[1]
     finally:
         if not kernel.CloseHandle(handle):raise _windows_error('No se pudo cerrar la consulta del nodo PnP.')
+
+def read_alias_instance(alias,kernel=None):
+    instance=read_alias_instance_id(alias,kernel)
+    if not CHILD_RE.fullmatch(instance):
+        raise ValueError('El nodo devuelto no acredita la interfaz MI04 del VID/PID esperado.')
+    return instance
 
 def windows_cfgmgr32():
     if sys.platform!='win32':raise RuntimeError('La consulta del dispositivo padre requiere Windows.')

@@ -1,7 +1,7 @@
 DJI REPAIR Studio
 
 Base y motor de servicio: archivos facilitados por el usuario.
-Interfaz unificada: studio_app.py y launch.py, versión 1.7.1.
+Interfaz unificada: studio_app.py y launch.py, versión 1.7.2.
 Protocolos de calibración: reimplementación a partir del material MyMavCaliTool3 /
 YanDron suministrado por el usuario. No se ejecutan ni distribuyen sus DLL .NET.
 No se incluye su bloque fijo de escritura IMU.
@@ -106,3 +106,13 @@ ni distribuyen esas cabeceras. Filtro USB presente, límites, instantáneas ató
 y proceso x64 propio oculto, supervisado por JobObject. No carga SDK DJI ni
 modifica controladores. Se prueban el ABI con fixtures y el proceso bajo Wine.
 El fallo de inventario 1.7.0 recibido no identifica el Air 3 ni un fallo físico.
+
+Revisión 1.7.2: lector propio de descriptores, vision_usb_descriptors.py. Usa
+PyUSB 1.3.1 y la biblioteca libusb-win32 ya incluida y verificada. Se contrastaron
+usb_find_devices, usb_os_find_devices, usb_os_open y los getters del backend:
+la enumeración puede solicitar GET_DESCRIPTOR; los getters consultan la caché.
+No se invocan set_configuration, claim_interface, reset o transferencias bulk.
+La asociación usa HardwareID y GET_OBJECT_NAME, con nodo actual idéntico al
+inventario PnP. La función genérica de alias no relaja el guardado MI04 del
+transporte Mini 4 Pro. Pruebas sintéticas y del EXE; nueva ruta pendiente en hardware.
+Se resume el perfil PnP 1.7.1 del usuario sin publicar su identificador completo.

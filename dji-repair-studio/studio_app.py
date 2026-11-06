@@ -449,7 +449,7 @@ class StudioApp(tk.Tk):
 
     def model_changed(self,*args):
         self.sync_operation_buttons(self.running)
-        self.connection_text.set('Air 3 · 01.00.1600 declarado · perfil USB y calibración pendientes' if self.model.get()=='Air 3' else 'Mini 4 Pro: USB, consulta SN y diagnóstico HMS experimental' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
+        self.connection_text.set('Air 3 · 01.00.1600 declarado · PnP observado; visión pendiente' if self.model.get()=='Air 3' else 'Mini 4 Pro: USB, consulta SN y diagnóstico HMS experimental' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
         if self.model.get() in TARGETS:
             self.vision.set_target(self.model.get())
             if not self.running:self.select_page('Visión Mini 4 Pro')

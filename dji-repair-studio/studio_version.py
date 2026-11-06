@@ -1,2 +1,2 @@
 """Application release version shared by UI and report writers."""
-VERSION = '1.7.1'
+VERSION = '1.7.2'

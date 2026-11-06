@@ -328,6 +328,32 @@ def main():
             report['native_pnp_abi_synthetic_test'] = {'wchar_bytes':ctypes.sizeof(ctypes.c_wchar),
                 'device_count':len(synthetic_native['devices']), 'hardware_id_count':len(synthetic_row['hardware_ids']),
                 'collection_complete':True, 'real_pnp_queries':0}
+            from vision_usb_descriptors import collect_descriptors
+            class SyntheticDescriptorList(list): pass
+            descriptor_interface=SyntheticDescriptorList([
+                SimpleNamespace(bEndpointAddress=4,bmAttributes=2,wMaxPacketSize=512,bInterval=0),
+                SimpleNamespace(bEndpointAddress=0x85,bmAttributes=2,wMaxPacketSize=512,bInterval=0)])
+            for key,value in {'bInterfaceNumber':3,'bAlternateSetting':0,'bInterfaceClass':255,
+                              'bInterfaceSubClass':0x43,'bInterfaceProtocol':1,'bNumEndpoints':2}.items():
+                setattr(descriptor_interface,key,value)
+            descriptor_cfg=SyntheticDescriptorList([descriptor_interface])
+            for key,value in {'bConfigurationValue':1,'wTotalLength':32,'bNumInterfaces':1,'bmAttributes':128,'bMaxPower':250}.items():
+                setattr(descriptor_cfg,key,value)
+            class SyntheticDescriptorDevice:
+                idVendor=0x2ca3;idProduct=0x0020;bcdUSB=0x200;bcdDevice=0x504
+                bDeviceClass=0;bDeviceSubClass=0;bDeviceProtocol=0;bMaxPacketSize0=64;bNumConfigurations=1
+                _ctx=SimpleNamespace(dev=SimpleNamespace(filename=(ALIAS_PREFIX+'0003--0x2ca3-0x0020').encode()))
+                def __getitem__(self,index):return descriptor_cfg
+            parent_id='USB\\VID_2CA3&PID_0020\\SYNTHETIC'
+            child_id='USB\\VID_2CA3&PID_0020&MI_03\\SYNTHETIC_CHILD'
+            rows=[{'instance_id':parent_id},{'instance_id':child_id,'parent':parent_id}]
+            descriptors=collect_descriptors(rows,enumerate_devices=lambda:[SyntheticDescriptorDevice()],
+                probe=lambda alias:['USB\\VID_2CA3&PID_0020&MI_03'],probe_instance=lambda alias:child_id)
+            assert descriptors['state']=='confirmado'
+            aliases=descriptors['aliases']; assert aliases[0]['pnp_instance_matches']
+            assert [e['bEndpointAddress'] for e in aliases[0]['configurations'][0]['interfaces'][0]['endpoints']]==[4,0x85]
+            report['usb_descriptor_synthetic_test']={'aliases':1,'interfaces':1,'endpoints':2,
+                'pnp_session_matched':True,'real_usb_operations':0,'transport_validated':False,'calibration_performed':False}
             from vision_usb_inventory import query_windows_pnp
             native_pnp = query_windows_pnp()
             assert native_pnp['collector_backend'] == 'cfgmgr32'
