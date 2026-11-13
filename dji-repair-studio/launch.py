@@ -387,12 +387,12 @@ def main():
             app.after(150,app.quit);app.mainloop()
             assert app.model.get()==FLIP
             allowed={a for b,a in zip(app.operation_buttons,app.operation_actions) if str(b['state'])=='normal'}
-            assert allowed=={USB_PROFILE_ACTION,'Identificar','Analizar','Generar','Convertir'}
+            assert allowed=={USB_PROFILE_ACTION,'Identificar','JointCoarse','LinearHall','Analizar','Generar','Convertir'}
             with ZipFile(flip_zip) as archive:
                 stored=json.loads(archive.read('DJI-REPAIR-informe.json'))
             assert 'gimbal' in stored and 'vision' not in stored
             report['flip_gimbal_project_test']={'model':app.model.get(),'firmware_declared':app.firmware.get(),
-                'gimbal_workspace_visible':True,'ui_rows':len(app.flip_gimbal.nodes.get_children()),
+                'gimbal_workspace_visible':True,'experimental_calibration_available':True,'ui_rows':len(app.flip_gimbal.nodes.get_children()),
                 'gimbal_scoped_zip':True,'calibration_available':False,'factory_commands_sent':0,
                 'service_commands_sent':0,'real_usb_operations':0,'model_preserved_in_event_loop':True}
         from flip_gimbal_query import query_flip_modules,FlipVersionTransport
@@ -447,6 +447,39 @@ def main():
             report['flip_module_query_synthetic_test']={'modules':2,'rx_bytes':78,'bulk_out_bytes':26,'last_percent':events[-1]['percent'],
                 'released_interface':4,'gimbal_scoped_zip':True,'factory_commands':0,'calibration_commands':0,
                 'calibration_available':False,'real_usb_operations':0,'ui_rows':2}
+        from flip_gimbal_calibration import run_flip_calibration,FlipCalibrationTransport
+        # Standalone synthetic workshop trace, not a real Flip calibration.
+        with tempfile.TemporaryDirectory(prefix='dji-flip-cal-smoke-') as folder:
+            croot=Path(folder);reference_path=croot/'modules.zip'
+            # Recreate the preceding synthetic module report (its temporary folder has closed).
+            with ZipFile(reference_path,'x') as z:
+                z.writestr('DJI-REPAIR-informe.json',json.dumps({'modelo_declarado':FLIP,'firmware_declarado':'01.00.1500','gimbal':{'module_query':query}}))
+                z.writestr('modules.bin',bytes.fromhex(''.join(p['hex'].replace(' ','') for p in query['packet_audit'] if p['direccion']=='RX')))
+            pending.clear();released.clear()
+            def calibration_write(req,timeout):
+                if req[9:11]==b'\0\1':return out_write(req,timeout)
+                assert req[9:12]==b'\4\10\1'
+                seq=int.from_bytes(req[6:8],'little')
+                pending.append(packet(4,10,seq,4,8,b'\1',flags=128)+
+                    packet(4,10,700,4,0x30,b'\x52\1',flags=0)+packet(4,10,701,4,0x30,b'\x64\0',flags=0))
+                return len(req)
+            out_ep.write=calibration_write
+            def calibration_factory(ref,routine):
+                return FlipCalibrationTransport(ref,routine,enumerator=lambda:[dev],selector=lambda ds:(ds[0],{'synthetic':True}),
+                    parent_reader=lambda d:{k:ref[k] for k in ('product','child_instance_sha256','parent_instance_sha256')},util=util)
+            events=[]
+            trial=run_flip_calibration(croot/'joint.zip',reference_path,'01.00.1500','JointCoarse',
+                transport_factory=calibration_factory,clock=qclock,progress=events.append,max_seconds=2)
+            assert trial['state']=='equipo_informa_fin' and released==[4]
+            assert trial['bulk_out_bytes_complete']==40 and trial['calibration_requests_attempted']==1
+            assert trial['factory_commands_sent']==0 and trial['calibration_performed'] is None
+            app.flip_gimbal.apply_calibration_report(trial);app.update()
+            with ZipFile(croot/'joint.zip') as z:assert 'calibration_probe' in json.loads(z.read('DJI-REPAIR-informe.json'))['gimbal']
+            report['flip_calibration_synthetic_test']={'routine':'JointCoarse','single_calibration_request':True,
+                'bulk_out_bytes':40,'last_percent':events[-1]['percent'],'device_reported_completion':True,
+                'factory_commands':0,'fixed_imu_coefficients_written':False,'released_interface':4,
+                'gimbal_scoped_zip':True,'ui_rows':len(app.flip_gimbal.nodes.get_children()),'real_usb_operations':0,
+                'physical_flip_tested':False}
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

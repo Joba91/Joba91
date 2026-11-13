@@ -11,11 +11,11 @@ class FlipGimbalView(ttk.Frame):
         ttk.Label(self,text='DJI Flip · calibración de taller del gimbal',font=('Segoe UI',13,'bold')).grid(row=0,column=0,columnspan=2,sticky='w',pady=5)
         ttk.Label(self,text='Firmware declarado (DJI Fly)').grid(row=1,column=0,sticky='w')
         self.firmware_entry=ttk.Entry(self,textvariable=firmware);self.firmware_entry.grid(row=1,column=1,sticky='ew',padx=8)
-        ttk.Label(self,text='Objetivo: JointCoarse y LinearHall · pendientes de validar para Flip.\n'
-                  'Faltan el protocolo de modo de taller y las peticiones/respuestas de calibración de este modelo.\n'
-                  'No se ejecutan las rutinas de otro dron al seleccionar Flip.\n\n'
-                  'Pulsa «Consultar FC y gimbal (Flip)», elige tu ZIP de perfil USB y guarda el ZIP de consulta.\n'
-                  'Dos consultas de versión 00/01, sin reenvío. No calibra ni mueve el gimbal.',
+        ttk.Label(self,text='JointCoarse y LinearHall · pruebas experimentales; compatibilidad Flip sin validar.\n'
+                  'Una petición común DJI por prueba. Modo fábrica automático no disponible.\n'
+                  'Antes de la petición se comprueban de nuevo el equipo y las versiones contra tu ZIP de módulos.\n\n'
+                  'Para probar: pulsa JointCoarse o LinearHall y elige tu ZIP DJIFlip-Modulos con ambas respuestas.\n'
+                  'El gimbal puede moverse y guardar ajustes. Detener lectura no lo frena. No se reenvía el comando.',
                   wraplength=820,justify='left').grid(row=2,column=0,columnspan=2,sticky='w',pady=10)
         self.summary=tk.StringVar();ttk.Label(self,textvariable=self.summary,wraplength=820).grid(row=3,column=0,columnspan=2,sticky='w',pady=6)
         self.nodes=ttk.Treeview(self,columns=('product','driver','endpoints'),show='tree headings',height=5)
@@ -28,7 +28,7 @@ class FlipGimbalView(ttk.Frame):
         self.clear()
 
     def clear(self):
-        self.summary.set('Sin consulta de versiones en esta sesión. La calibración no está disponible.')
+        self.summary.set('Elige una prueba o consulta de versiones. Las rutinas siguen sin validación física en Flip.')
         for key,text in [('#0','Nodo'),('product','Nombre de Windows'),('driver','Controlador'),('endpoints','Endpoints observados')]:
             self.nodes.heading(key,text=text)
         self.nodes.delete(*self.nodes.get_children())
@@ -59,4 +59,11 @@ class FlipGimbalView(ttk.Frame):
             self.nodes.heading(key,text=text)
         for row in data.get('modules',[]):
             self.nodes.insert('','end',text=row['modulo'],values=(row.get('hardware','—'),row.get('firmware_modulo','—'),row['estado']))
+        self.evidence.configure(state='normal');self.evidence.insert('1.0',json.dumps(data,ensure_ascii=False,indent=2));self.evidence.configure(state='disabled')
+
+    def apply_calibration_report(self,data):
+        self.clear();self.summary.set(data.get('detail','Sin fin verificable de la prueba.'))
+        for key,text in [('#0','Prueba'),('product','Estado'),('driver','Progreso observado'),('endpoints','Fin del equipo')]:
+            self.nodes.heading(key,text=text)
+        self.nodes.insert('','end',text=data['routine'],values=(data['state'],', '.join(dict.fromkeys(data.get('progress_reports',[]))),str(data.get('device_reported_completion',False))))
         self.evidence.configure(state='normal');self.evidence.insert('1.0',json.dumps(data,ensure_ascii=False,indent=2));self.evidence.configure(state='disabled')

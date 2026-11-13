@@ -66,10 +66,10 @@ class FlipGuiTests(unittest.TestCase):
     def test_only_inventory_and_offline_actions_enabled(self):
         from studio_app import USB_PROFILE_ACTION
         for button,action in zip(self.app.operation_buttons,self.app.operation_actions):
-            self.assertEqual(str(button['state'])=='normal',action in (USB_PROFILE_ACTION,'Identificar','Analizar','Generar','Convertir'),action)
+            self.assertEqual(str(button['state'])=='normal',action in (USB_PROFILE_ACTION,'Identificar','JointCoarse','LinearHall','Analizar','Generar','Convertir'),action)
     def test_no_entry_path_runs_another_aircraft_calibration_or_sensor_query(self):
         from studio_app import VISION_ACTIONS,USB_PROFILE_ACTION
-        actions=['JointCoarse','LinearHall','Entrar modo fabrica','Salir modo fabrica','Módulos','Diagnóstico','Parámetros','Cámara','Gimbal heredado']+[a for a in VISION_ACTIONS if a!=USB_PROFILE_ACTION]
+        actions=['Entrar modo fabrica','Salir modo fabrica','Módulos','Diagnóstico','Parámetros','Cámara','Gimbal heredado']+[a for a in VISION_ACTIONS if a!=USB_PROFILE_ACTION]
         with patch('studio_app.messagebox.showinfo'),patch('studio_app.backend.open_serial_port') as opening,patch('studio_app.filedialog.askopenfilename') as files:
             for action in actions:self.app.dispatch(action)
             self.app.dispatch_vision('Capturar USB pasivo')
@@ -141,4 +141,39 @@ class FlipQueryGuiTests(unittest.TestCase):
         self.app.mode.set('port')
         with patch('studio_app.messagebox.showerror') as error,patch('studio_app.filedialog.askopenfilename') as files:
             self.app.dispatch('Identificar')
+        error.assert_called_once();files.assert_not_called()
+
+@unittest.skipUnless(os.environ.get('DISPLAY') or os.name=='nt','Requires a graphical display')
+class FlipCalibrationGuiTests(unittest.TestCase):
+    setUp=FlipGuiTests.setUp
+    tearDown=FlipGuiTests.tearDown
+    wait_idle=FlipGuiTests.wait_idle
+    def modules_reference(self):
+        from test_flip_query import save_reference,Exchange
+        from flip_gimbal_query import load_reference,query_flip_modules
+        profile=save_reference(self.root/'reference.zip');ref=load_reference(profile,'01.00.1500');ex=Exchange(ref)
+        modules=self.root/'modules.zip'
+        query_flip_modules(modules,profile,'01.00.1500',transport_factory=lambda r:ex.transport,clock=ex.clock)
+        return modules
+    def test_experimental_joint_runs_own_guarded_path_and_saves_gimbal_result(self):
+        from test_flip_calibration import CalibrationFixture
+        from flip_gimbal_calibration import run_flip_calibration,load_calibration_reference
+        modules=self.modules_reference();dest=self.root/'cal.zip'
+        fixture=CalibrationFixture(load_calibration_reference(modules,'01.00.1500'),'JointCoarse')
+        def run(*args,**kw):return run_flip_calibration(*args,**kw,transport_factory=lambda r,a:fixture.transport,clock=fixture.clock,max_seconds=2)
+        with patch('studio_app.filedialog.askopenfilename',return_value=str(modules)),patch('studio_app.filedialog.asksaveasfilename',return_value=str(dest)),patch('studio_app.messagebox.askyesno',return_value=True),patch('studio_app.run_flip_calibration',side_effect=run),patch('studio_app.backend.open_serial_port') as legacy:
+            self.app.dispatch('JointCoarse');self.wait_idle()
+        legacy.assert_not_called();self.assertTrue(dest.is_file());self.assertEqual(self.app.progress_value.get(),100)
+        data=self.app.report['gimbal']['calibration_probe']
+        self.assertEqual(data['state'],'equipo_informa_fin');self.assertTrue(data['experimental'])
+        self.assertEqual(data['factory_commands_sent'],0);self.assertEqual(data['calibration_requests_attempted'],1)
+        self.assertEqual(len(self.app.flip_gimbal.nodes.get_children()),1)
+    def test_declining_operation_or_wrong_firmware_opens_no_transport(self):
+        modules=self.modules_reference();dest=self.root/'cal.zip'
+        with patch('studio_app.filedialog.askopenfilename',return_value=str(modules)),patch('studio_app.filedialog.asksaveasfilename',return_value=str(dest)),patch('studio_app.messagebox.askyesno',return_value=False),patch('studio_app.run_flip_calibration') as run:
+            self.app.dispatch('LinearHall')
+        run.assert_not_called();self.assertFalse(dest.exists());self.assertFalse(self.app.running)
+        self.app.firmware.set('01.00.1600')
+        with patch('studio_app.messagebox.showerror') as error,patch('studio_app.filedialog.askopenfilename') as files:
+            self.app.dispatch('JointCoarse')
         error.assert_called_once();files.assert_not_called()

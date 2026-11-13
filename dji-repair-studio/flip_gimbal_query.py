@@ -74,7 +74,7 @@ class FlipVersionTransport:
         import usb.util
         import usb.core
         self.util=util or usb.util;self.core=usb.core;self.device=None;self.claimed=False
-        self.rx=bytearray();self.tx_attempts=[];self.tx_confirmed=[];self.uncertain_tx=False
+        self.rx=bytearray();self.rx_limit=MAX_RX;self.tx_attempts=[];self.tx_confirmed=[];self.uncertain_tx=False
         self.evidence={'stage':'enumerar_alias_libusb0','identity_authenticated':False,'marketing_model_confirmed':False}
         try:
             devices=[]
@@ -124,13 +124,13 @@ class FlipVersionTransport:
         self.tx_confirmed.append(data);return count
 
     def read(self):
-        if len(self.rx)>=MAX_RX:raise RuntimeError('Límite de recepción de 64 KiB alcanzado.')
+        if len(self.rx)>=self.rx_limit:raise RuntimeError('Límite de recepción alcanzado.')
         try:chunk=bytes(self.ep_in.read(512,timeout=200))
         except self.core.USBTimeoutError:return b''
         if len(chunk)>512:raise ValueError('Lectura superior al tamaño permitido.')
-        remaining=MAX_RX-len(self.rx)
+        remaining=self.rx_limit-len(self.rx)
         self.rx.extend(chunk[:remaining])
-        if len(chunk)>remaining:raise RuntimeError('Límite de recepción de 64 KiB alcanzado.')
+        if len(chunk)>remaining:raise RuntimeError('Límite de recepción alcanzado.')
         return chunk
 
     def close(self):

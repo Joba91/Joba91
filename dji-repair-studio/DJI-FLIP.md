@@ -1,111 +1,100 @@
-# DJI Flip · gimbal de taller · proyecto pendiente
+# DJI Flip · pruebas de taller del gimbal · 1.9.0
 
-Firmware de aeronave **01.00.1500 declarado por el usuario el 13 de noviembre de
-2026**. Solicitud: **JointCoarse y LinearHall**, no la calibración automática de
-DJI Fly. **Estas dos rutinas todavía no están implementadas para el Flip.**
+Firmware de aeronave **01.00.1500 declarado por el usuario**. Se incorporan
+**JointCoarse y LinearHall como pruebas experimentales** con la petición común
+DJI. **Su compatibilidad y sus efectos en el Flip aún no están validados.**
+No se presentan como un procedimiento de taller certificado o probado físicamente.
 
-## Incluido desde 1.8.0
+## Evidencia recibida
 
-- DJI Flip en el selector, con espacio propio en la pestaña Calibración.
-- Firmware declarado conservado por modelo; la casilla de preparación de fábrica
-  se limpia al cambiar de equipo y no se usa como validación del Flip.
-- Recopilar perfil USB guarda un ZIP de gimbal con PnP y los descriptores estándar
-  accesibles. Los datos se muestran en la misma ventana y se pueden exportar.
-- La selección no se cambia a Mini 4 Pro por eventos de la pestaña de visión.
-- JointCoarse, LinearHall, fábrica, parámetros, cámara, consultas heredadas y
-  operaciones de sensores quedan bloqueadas antes de abrir el transporte de servicio.
+El perfil 1.8.0 obtuvo ocho nodos PnP y seis alias con descriptores completos.
+MI04: configuración 1, alternativa 0, clase FF/43/01, OUT04/IN85 bulk512. Nombre
+USB genérico DJI-…; no se convierte en identidad comercial autenticada.
 
-El ZIP usa `gimbal.usb_profile`, no `vision.usb_profile`. Un nombre de producto
-coincidente solo es coincidencia de descriptor, no identidad autenticada ni
-prueba de compatibilidad. El 100 % indica inventario guardado, no calibración.
-No hay cambio de firmware o de controlador ni órdenes de fábrica/calibración.
-La enumeración puede emitir GET_DESCRIPTOR estándar; no se conoce el número
-exacto de esas operaciones. No se reclaman interfaces ni se transfiere bulk.
+La consulta 1.8.1 recibida tiene 185 bytes RX y tres tramas de CRC válido: un
+broadcast 03/43 y dos respuestas 00/01 correlacionadas por emisor/destino/secuencia.
+El controlador informa versión de módulo **01.00.0057** y el gimbal **00.00.2052**
+según el formato común del proyecto. No sustituyen el firmware de aeronave de DJI
+Fly. Hubo dos peticiones completas (26 bytes OUT), ninguna orden de calibración
+ni fábrica. El orden de alias cambió y se identificó MI04 por metadatos.
 
-## Próximo dato del equipo
+## Ejecutar una prueba
 
-Extrae el ZIP de la versión nueva. Selecciona **DJI Flip**, revisa el firmware
-**01.00.1500** y pulsa **Recopilar perfil USB** en el lateral. Guarda y comparte
-`DJIFlip-PerfilUSB-….zip`, incluso si informa un error. Conecta solo el Flip y
-cierra otras aplicaciones que mantengan ocupado su USB.
+1. Extrae la versión nueva y abre DJI REPAIR Studio 1.9.0.exe.
+2. Selecciona **DJI Flip / USB bulk** y revisa firmware declarado **01.00.1500**.
+3. Pulsa **JointCoarse · prueba Flip** o **LinearHall · prueba Flip**.
+4. Elige tu **DJIFlip-Modulos-….zip** con las dos respuestas de versión recibidas.
+   No es el ZIP de perfil USB. Guarda el ZIP nuevo con el nombre de la rutina.
+5. Lee la confirmación y ejecútala únicamente con el gimbal libre de su protector
+   y con el recorrido despejado. El gimbal puede moverse y el firmware puede
+   guardar ajustes. Comparte el ZIP de resultado, incluso si informa un error.
 
-No se presupone su código interno, PID o endpoints. PnP recoge nodos DJI para
-cualquier PID; la fase actual de descriptores libusb0 solo reconoce 2CA3:0020.
-Otro PID se conserva en PnP con el límite explícito de la fase de descriptores.
-No se cambia su PID ni se aplica un perfil de otro producto para hacerlo pasar.
+Para esta primera comprobación del Flip se recomienda probar JointCoarse y revisar
+su captura antes de ejecutar LinearHall. El programa no encadena ambas rutinas.
+La existencia de los botones no significa que la compatibilidad esté confirmada.
 
-## Falta para ejecutar JointCoarse/LinearHall
+## Petición y restricciones
 
-El inventario USB no basta. Hay que contrastar con este modelo y firmware:
-entrada/salida del modo de taller, peticiones de ambas rutinas, significado de
-sus respuestas, etapas, fin y rechazo. Una captura de un procedimiento que
-funcione con Flip o una implementación documentada específica permitiría
-contrastar esos datos. No se presentan ACK o movimiento como calibración terminada.
+Se valida el ZIP de módulos: CRC de las respuestas presentes también en el BIN,
+peticiones 00/01 válidas, correlación, dos módulos y metadatos de apertura MI04.
+Se compara el padre/nodo actual con la referencia y se verifican los endpoints.
+Antes de la calibración se vuelven a consultar ambos módulos, una vez cada uno,
+y se comparan los primeros 26 bytes de versión/hardware con la referencia.
+Un cambio impide enviar la petición de calibración.
 
-Referencia pública consultada el 13 de noviembre de 2026:
+Se descarta tráfico previo y se comprueba que no haya informes de calibración
+activa antes de iniciar. Después se permite **una sola petición 04/08** al gimbal:
+`01` para JointCoarse o `02` para LinearHall. Este formato existe en otros gimbals
+DJI; se prueba su compatibilidad aquí, no se la deduce de las versiones recibidas.
+No se reenvía, se cambia de interfaz, entra/sale automáticamente de fábrica,
+resetea el USB, fuerza otra configuración o escriben tablas IMU fijas.
+
+El modo de taller actual no está identificado. Si la rutina requiere un modo que
+no está activo, puede no iniciar. La entrada/salida de fábrica del Flip sigue sin
+implementación contrastada. No se llama a start_factory de otro producto.
+
+## Qué acepta como fin
+
+Un ACK correlacionado con payload admitido por la política de prueba (00/01 para
+JointCoarse; 00/01/02 para LinearHall) solo cuenta como confirmación inicial.
+Se exige además progreso **posterior** conocido de 04/30 y un fin `64 00`.
+Las etapas se registran en bruto; no se asignan a ejes del Flip sin evidencia.
+Un ACK solo, `64 00` sin progreso, secuencia distinta, estado desconocido o tiempo
+agotado no se convierten en éxito ni en 100 %. `64 03` se registra como fallo
+informado por el equipo, sin diagnosticar una causa física. Una respuesta inicial
+FB se guarda como inicio no confirmado, sin reintentar o ejecutar scripts.
+
+El progreso 25/50/75/100 cuenta hitos: versiones coincidentes, petición entregada,
+progreso observado y fin informado más ZIP guardado. No mide avance mecánico.
+Los informes 04/30 son asíncronos y su secuencia no es un vínculo criptográfico
+con la petición. El resultado es lo informado por el dispositivo y observado
+tras la solicitud, no una validación física/metrológica de la calibración.
+
+## Captura, cancelación y persistencia
+
+Se reciben hasta 1 MiB y se monitoriza hasta 180 segundos como límite, no como
+duración prevista. El ZIP guarda BIN crudo y `gimbal.calibration_probe`, con
+preflight, petición, ACK, etapas y resultado. Auditoría JSON limitada a 1024
+registros y vistas de etapas a 300; el BIN conserva el tráfico capturado completo
+hasta el límite. Se libera MI04 al finalizar.
+
+**Detener lectura no envía una orden de parada y no frena los motores.** Después
+de una petición intentada, `calibration_performed` queda desconocido; si hubo
+ACK/progreso/fin admitidos se usa `equipo_informa_fin`, sin afirmar exactitud.
+El firmware podría guardar parámetros como parte de su rutina. Ese efecto no
+se ha caracterizado; únicamente se afirma que no se escriben coeficientes IMU
+fijos desde la herramienta. Ante entrega USB incierta tampoco se reenvía.
+
+## Validación y procedencia
+
+373 pruebas de aplicación/interfaz y 11 de empaquetado. Casos de dos rutinas,
+progreso previo, referencia alterada, versión actual distinta, ACK solo, rechazo,
+secuencia errónea, timeout, desconexión, cancelación y entrega incompleta.
+El EXE se ejecuta bajo Wine con transporte sintético. No hay calibración física
+de Flip en cloud y los datos sintéticos se identifican como tales.
+
+Las formas comunes de petición/informes se contrastan con la referencia pública:
 https://github.com/o-gs/dji-firmware-tools/blob/master/comm_og_service_tool.py
-La copia revisada tiene procedimientos modernos para Air 3/Mini 3, pero no
-incluye Flip. Eso no demuestra que sea imposible calibrarlo ni que esas rutinas
-sean compatibles por analogía. No se copió ese código al motor de esta entrega.
-No se pudo consultar el manual oficial en este entorno por su política de red;
-no se da una guía de calibración automática como sustituto de las rutinas pedidas.
-
-Pruebas propias con fixtures de USB y de interfaz, y arranque del EXE bajo Wine.
-No hay dron Flip conectado en cloud; no se ha probado esta lectura en su hardware.
-
-## Perfil 1.8.0 recibido el 13 de noviembre
-
-ZIP válido de 2205 bytes con un JSON de 17817 bytes. Ocho nodos PnP, un padre
-2CA3:0020, seis alias con descriptores completos y sin errores de esa fase.
-Nombre de producto genérico DJI-…; no se convierte en identidad comercial Flip.
-Firmware de aeronave 01.00.1500 declarado, no leído del descriptor USB 0x0504.
-
-| Interfaz | OUT | IN | Tipo | Tamaño máximo |
-| --- | --- | --- | --- | --- |
-| MI02 (almacenamiento) | 02 | 83 | bulk | 512 |
-| MI03 | 03 | 84 | bulk | 512 |
-| MI04 | 04 | 85 | bulk | 512 |
-| MI05 | 05 | 86 | bulk | 512 |
-| MI06 | 06 | 87 | bulk | 512 |
-| MI07 | 07 | 88 | bulk | 512 |
-
-Esto acredita el inventario de descriptores en el Windows del usuario; no hay
-tráfico de módulos, modo de taller o calibración en ese archivo. No hace falta
-repetir ese inventario para obtener los mismos datos ya recibidos.
-
-## Consulta experimental de módulos en 1.8.1
-
-1. Extrae el ZIP nuevo, abre su EXE y selecciona DJI Flip / USB bulk.
-2. Pulsa **Consultar FC y gimbal (Flip)** en el lateral.
-3. Selecciona tu **DJIFlip-PerfilUSB-….zip de 1.8.0** como referencia.
-4. Guarda un ZIP nuevo **DJIFlip-Modulos-….zip** y compártelo, incluso si hay error.
-
-Antes de transmitir se relee el padre actual de MI04. Producto y hashes de nodo
-hijo/padre deben coincidir exactamente con el perfil seleccionado. Se vuelven a
-comprobar configuración activa 1, alternativa 0, clase FF/43/01 y OUT04/IN85 bulk
-512. No se usa el orden de los alias ni se cambia configuración para forzarlo.
-Si cambiaste de puerto y no coincide el nodo, recopila un perfil nuevo.
-
-Esta prueba reclama MI04 localmente y permite únicamente dos peticiones DUML
-estándar **00/01 sin payload**, una al controlador (03) y otra al gimbal (04),
-sin reenvíos. No admite 04/08, 00/44, destinos alternativos o paquetes arbitrarios.
-La consulta común de versiones procede del lector propio ya incluido; su
-compatibilidad real con este Flip aún debe probarse. No se habilita el modo de
-taller ni JointCoarse/LinearHall a partir de un descriptor.
-
-La recepción es de hasta 64 KiB y cada respuesta espera hasta 3 segundos, con
-lecturas USB de 200 ms. Los datos se guardan en un BIN nuevo y en el ZIP, junto
-con el informe `gimbal.module_query`, consultas/respuestas correlacionadas y
-entrega USB incierta si hay error. Se compara CRC, emisor, destino y secuencia.
-El BIN contiene también tráfico no relacionado, sin interpretarlo como calibración.
-La interfaz se libera y los recursos se cierran al terminar.
-
-Los campos de hardware/loader/versión usan el formato común del proyecto y se
-conservan también los bytes crudos. Son observaciones de módulo; no autentican
-el modelo ni sustituyen la versión de aeronave de DJI Fly. Una respuesta ausente,
-un formato distinto o un error de apertura no demuestran una avería del gimbal.
-El 100 % exige dos respuestas con formato reconocido y el ZIP guardado.
-
-La calibración de taller sigue pendiente. Esta consulta comprueba la comunicación
-de información; no acredita peticiones, modo de fábrica, etapas o fin de calibración.
-Pruebas sintéticas y del EXE bajo Wine; nueva ruta sin prueba física en Flip.
+No se copian programas DJI, se ejecutan sus DLL o se asigna un código interno de
+otro modelo al Flip. No se redistribuyen los ZIP originales o identificadores de
+la unidad del usuario. Las funciones anteriores conservan sus límites.

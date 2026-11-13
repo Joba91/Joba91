@@ -1,38 +1,36 @@
-# DJI REPAIR Studio 1.8.1
+# DJI REPAIR Studio 1.9.0
 
-Windows 10/11 x64, una interfaz. DJI Flip, firmware 01.00.1500 declarado:
-se añade una **consulta experimental de versión al controlador y al gimbal**.
-**JointCoarse y LinearHall del Flip siguen pendientes de implementación.**
+Windows 10/11 x64, una interfaz. Se incorporan **pruebas experimentales de
+JointCoarse y LinearHall para DJI Flip**, firmware **01.00.1500 declarado**.
+**Compatibilidad Flip sin validación física:** se prueba la petición común DJI;
+no se presenta como un procedimiento de taller ya comprobado para este modelo.
 
-[Descarga](../downloads/LEEME.md) · [DJI Flip](DJI-FLIP.md) ·
+[Descarga](../downloads/LEEME.md) · [Detalle Flip](DJI-FLIP.md) ·
 [Mini 4 Pro](VISION-MINI4PRO.md) · [Air 3](VISION-AIR3.md)
 
-## Resultado y siguiente prueba
+## Cambio de esta versión
 
-El perfil Flip 1.8.0 recibido contiene ocho nodos PnP y seis alias con descriptores
-completos. MI04 ofrece OUT04/IN85 bulk512, configuración 1/alternativa 0. Nombre
-USB genérico DJI-…; no se asume una identidad comercial por esa cadena.
+La captura 1.8.1 aportada por el usuario contiene dos respuestas 00/01 válidas y
+correlacionadas por MI04: controlador 01.00.0057 y gimbal 00.00.2052, versiones de
+módulo observadas, no la versión de aeronave DJI Fly. Hay comunicación de
+información; eso no prueba compatibilidad de las calibraciones.
 
-En 1.8.1 selecciona DJI Flip y pulsa **Consultar FC y gimbal (Flip)**. Elige tu
-ZIP previo DJIFlip-PerfilUSB-….zip y guarda DJIFlip-Modulos-….zip. El mismo ZIP
-previo se usa como referencia; no hace falta repetir el inventario ya recibido.
-Se compara producto y nodo actual con ese perfil y se revisan los endpoints antes
-de reclamar MI04. Solo se permiten dos solicitudes 00/01, sin reenvíos. Se guardan
-RX crudo, auditoría y campos observados en `gimbal.module_query`, en la misma vista.
+Cada prueba exige ese ZIP de módulos, comprueba de nuevo nodo/producto/endpoints
+y dos versiones actuales coincidentes, y aborta si detecta progreso previo.
+Solo se permite una petición 04/08: 01 JointCoarse o 02 LinearHall. No se cambian
+modos de fábrica, se reenvía, fuerza otra interfaz o escriben tablas IMU fijas.
+El firmware puede persistir ajustes propios de su rutina; el efecto está sin validar.
 
-No se aceptan órdenes de fábrica/calibración, configuración o paquetes arbitrarios.
-Los campos de versión usan el formato común del proyecto y conservan el original;
-no son identidad autenticada o diagnóstico de salud. Falta probar la consulta en
-el Flip real y resolver el contrato de las rutinas de taller pedidas.
+ACK correlacionado admitido + progreso posterior conocido + fin 64 00 permiten
+informar `equipo_informa_fin`. El 100 % exige también guardar el ZIP. No afirma
+exactitud física/metrológica ni identidad autenticada. Se conservan RX/BIN,
+auditoría y errores; cancelar detiene lectura, no motores. [Uso y límites](DJI-FLIP.md).
 
 ## Validación
 
-362 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 bajo Wine con
-fixtures sintéticos y corpus históricos; no hay Flip conectado en cloud. Prueba
-sintética: dos respuestas, 78 bytes RX, 26 bytes OUT, cero órdenes de fábrica o
-calibración, MI04 liberada y ZIP guardado. No se ejecutan programas DJI en cloud.
-
-Se mantienen las funciones previas y sus límites. La calibración óptica de
-Mini 4 Pro/Air 3 sigue pendiente. Fuentes y licencias incluidas. Desarrollo:
-Python 3.13/Tk, `python launch.py`, pruebas `python -m unittest discover -s tests -v`,
-compilación Windows `build_windows.ps1`. El receptor propio x86 no se modifica.
+373 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 bajo Wine con
+trazas sintéticas, incluidos límites de una petición y rechazo de fábrica.
+No hay Flip físico en cloud. El receptor propio x86 y las funciones previas
+mantienen sus límites; calibración óptica Mini 4 Pro/Air 3 todavía pendiente.
+Fuentes y licencias incluidas. Desarrollo Python 3.13/Tk; `python launch.py`,
+`python -m unittest discover -s tests -v`, compilación Windows `build_windows.ps1`.
