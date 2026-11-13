@@ -1,7 +1,7 @@
 DJI REPAIR Studio
 
 Base y motor de servicio: archivos facilitados por el usuario.
-Interfaz unificada: studio_app.py y launch.py, versión 1.7.2.
+Interfaz unificada: studio_app.py y launch.py, versión 1.8.0.
 Protocolos de calibración: reimplementación a partir del material MyMavCaliTool3 /
 YanDron suministrado por el usuario. No se ejecutan ni distribuyen sus DLL .NET.
 No se incluye su bloque fijo de escritura IMU.
@@ -116,3 +116,11 @@ La asociación usa HardwareID y GET_OBJECT_NAME, con nodo actual idéntico al
 inventario PnP. La función genérica de alias no relaja el guardado MI04 del
 transporte Mini 4 Pro. Pruebas sintéticas y del EXE; nueva ruta pendiente en hardware.
 Se resume el perfil PnP 1.7.1 del usuario sin publicar su identificador completo.
+
+Revisión 1.8.0: gimbal_profiles.py y flip_gimbal_view.py, implementaciones propias
+para separar el proyecto DJI Flip de los protocolos de los otros modelos.
+Firmware 01.00.1500 y objetivo JointCoarse/LinearHall declarados por el usuario.
+La copia pública de o-gs/dji-firmware-tools consultada el 13 de noviembre de
+2026 no incluye Flip. No se copian sus procedimientos Air 3/Mini 3 ni se ejecutan
+comandos de taller del Flip. Se reutiliza únicamente el inventario de conexión,
+con informe gimbal.usb_profile y pruebas sintéticas específicas del nuevo destino.

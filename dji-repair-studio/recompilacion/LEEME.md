@@ -25,4 +25,4 @@ cruzada utilizada en cloud. Esperan una raíz con `src/`, `runtime/`, `vendor/` 
 `build-tools/receiver32/` como indican sus constantes. Para reproducir esa variante,
 coloca `fuentes/` como `src/` y prepara los activos oficiales de sus registros.
 La variante cloud no pudo probar el arranque x86 porque el kernel deshabilita IA32;
-ese límite está registrado en `validacion-1.7.2.json`.
+ese límite está registrado en `validacion-1.8.0.json`.

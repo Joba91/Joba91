@@ -371,6 +371,30 @@ def main():
                         check=True,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
                     report['receiver32_self_test']=json.loads(destination.read_text(encoding='utf-8'))
                     report['receiver32_packaged']['startup_tested']=True
+        from gimbal_profiles import FLIP
+        from studio_app import USB_PROFILE_ACTION
+        app.model.set(FLIP);app.update()
+        assert app.firmware.get()=='01.00.1500' and not app.prepared.get()
+        assert app.tabs.select()==str(app.pages['Calibración'])
+        with tempfile.TemporaryDirectory(prefix='dji-flip-smoke-') as folder:
+            raw={'schema':1,'source':'windows_pnp_present','devices':[{
+                'instance_id':'USB\\VID_2CA3&PID_0020\\SYNTHETIC','friendly_name':'Synthetic Flip',
+                'status':'SYNTHETIC','bus_product':'DJI Flip-SYNTHETIC','parent':'SYNTHETIC_PARENT',
+                'service':'usbccgp','hardware_ids':['USB\\VID_2CA3&PID_0020'],'problem_code':0}]}
+            flip_zip=Path(folder)/'flip.zip'
+            flip=collect_usb_profile(flip_zip,FLIP,'01.00.1500',collector=lambda **kw:raw)
+            app.flip_gimbal.apply_report(flip);app.update()
+            app.after(150,app.quit);app.mainloop()
+            assert app.model.get()==FLIP
+            allowed={a for b,a in zip(app.operation_buttons,app.operation_actions) if str(b['state'])=='normal'}
+            assert allowed=={USB_PROFILE_ACTION,'Analizar','Generar','Convertir'}
+            with ZipFile(flip_zip) as archive:
+                stored=json.loads(archive.read('DJI-REPAIR-informe.json'))
+            assert 'gimbal' in stored and 'vision' not in stored
+            report['flip_gimbal_project_test']={'model':app.model.get(),'firmware_declared':app.firmware.get(),
+                'gimbal_workspace_visible':True,'ui_rows':len(app.flip_gimbal.nodes.get_children()),
+                'gimbal_scoped_zip':True,'calibration_available':False,'factory_commands_sent':0,
+                'service_commands_sent':0,'real_usb_operations':0,'model_preserved_in_event_loop':True}
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

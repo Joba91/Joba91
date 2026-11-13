@@ -63,7 +63,7 @@ def analyze(text):
 
 def validate(model, firmware, action, prepared=False):
     if model not in MODELS:
-        raise ValueError('Modelo sin calibracion validada en esta herramienta. Mavic 4 Pro y Classic no estan habilitados en esta seccion.')
+        raise ValueError(f'Modelo sin calibracion validada en esta herramienta: {model}. JointCoarse/LinearHall no habilitados.')
     if action not in ACTIONS: raise ValueError('Accion no admitida')
     if action in ('Escuchar progreso (20 s)', 'Salir modo fabrica'): return
     if not re.fullmatch(r'\d{2}\.\d{2}\.\d{4}', firmware):

@@ -7,7 +7,7 @@ import uuid
 import time
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
-from vision_targets import target_info
+from gimbal_profiles import usb_target_info, GIMBAL_PROJECTS
 from studio_version import VERSION
 
 MAX_BYTES = 1024 * 1024
@@ -82,7 +82,8 @@ def product_family(value):
     if not isinstance(value, str): return None
     for family, pattern in (
             ('Mini 4 Pro', r'(?:DJI\s+)?Mini\s*4\s*Pro(?:-|$)'),
-            ('Air 3', r'(?:DJI\s+)?Air\s*3(?:-|$)')):
+            ('Air 3', r'(?:DJI\s+)?Air\s*3(?:-|$)'),
+            ('DJI Flip', r'(?:DJI\s+)?Flip(?:-|$)')):
         if re.match(pattern, value.strip(), re.I): return family
     return None
 
@@ -125,7 +126,7 @@ def validate_inventory(raw):
 
 def collect_usb_profile(output_zip, model, firmware, cancelled=lambda: False, progress=lambda e: None,
                         collector=query_windows_pnp):
-    target_info(model)
+    usb_target_info(model)
     validate_firmware(firmware)
     path = Path(output_zip).absolute()
     if path.suffix.lower() != '.zip' or path.exists() or not path.parent.is_dir():
@@ -135,6 +136,8 @@ def collect_usb_profile(output_zip, model, firmware, cancelled=lambda: False, pr
               'usb_endpoints_verified': False, 'calibration_available': False, 'calibration_performed': False,
               'native_sdk_loaded': False, 'usb_operations_requested': 0, 'service_commands_sent': 0,
               'driver_changes': 0, 'support_bundle': str(path)}
+    if model in GIMBAL_PROJECTS:
+        result.update(project_scope='gimbal', requested_calibrations=['JointCoarse','LinearHall'], factory_commands_sent=0)
     try:
         if cancelled(): raise InterruptedError('Recopilación detenida antes de consultar Windows.')
         progress({'mode': 'indeterminate', 'label': 'Leyendo dispositivos y controladores registrados en Windows'})
@@ -171,7 +174,7 @@ def collect_usb_profile(output_zip, model, firmware, cancelled=lambda: False, pr
     except Exception as exc:
         result.update(state='desconocido' if isinstance(exc, InterruptedError) else 'error', detail=str(exc), error=str(exc))
     data = json.dumps({'herramienta': 'DJI REPAIR Studio', 'version': VERSION, 'fecha_unix': time.time(), 'modelo_declarado': model,
-                       'firmware_declarado': firmware, 'vision': {'usb_profile': result}}, ensure_ascii=False, indent=2).encode('utf-8')
+                       'firmware_declarado': firmware, ('gimbal' if model in GIMBAL_PROJECTS else 'vision'): {'usb_profile': result}}, ensure_ascii=False, indent=2).encode('utf-8')
     if len(data) > MAX_BYTES: raise ValueError('El informe excede el límite de archivo.')
     with ZipFile(path, 'x', ZIP_DEFLATED) as archive:
         archive.writestr('DJI-REPAIR-informe.json', data)

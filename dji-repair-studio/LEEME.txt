@@ -1,44 +1,37 @@
-DJI REPAIR STUDIO 1.7.2 — Windows 10/11 x64
+DJI REPAIR STUDIO 1.8.0 — Windows 10/11 x64
 
-Extrae el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.7.2.exe.
-Una ventana, botones laterales y progreso. La calibración óptica Mini 4 Pro y
-Air 3 todavía NO está implementada.
+Extrae el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.8.0.exe.
+Se añade DJI Flip como proyecto de calibración de taller del gimbal.
+IMPORTANTE: JointCoarse y LinearHall del Flip todavía NO están implementadas.
+Esta versión añade su perfil y lectura USB; no ejecuta una calibración del Flip.
 
-AIR 3 — NUEVA LECTURA DE DESCRIPTORES USB
-El inventario recibido de 1.7.1 sí funcionó: ocho nodos PnP, producto e3t y
-códigos de problema Windows cero. No permite evaluar sensores ni endpoints.
-1.7.2 añade sus descriptores estándar mediante el mismo botón:
-1. Conecta solo el Air 3 y selecciónalo en Modelo seleccionado.
-2. En Visión de sensores revisa firmware declarado 01.00.1600.
-3. Pulsa Recopilar perfil USB y guarda un ZIP nuevo.
-4. Comparte el ZIP, incluso si informa un error.
+DJI FLIP — FIRMWARE 01.00.1500 DECLARADO POR EL USUARIO
+1. Selecciona DJI Flip en Modelo seleccionado.
+2. Se abre su espacio de gimbal en Calibración; revisa el firmware declarado.
+3. Conecta solo el Flip y pulsa Recopilar perfil USB en el lateral.
+4. Guarda y comparte DJIFlip-PerfilUSB-....zip, incluso si hay un error.
 
-No necesitas PowerShell, exportación manual UsbTreeView ni cambios de driver.
-Si otra herramienta DJI ocupa el dispositivo, ciérrala antes de esta lectura.
-Los endpoints observados aparecen en la columna de la misma interfaz; Cn/An
-indica configuración/alternativa del descriptor, no una selección aplicada.
-No se reclama interfaz, lee bulk, consulta sensor ni ejecuta calibración.
-La enumeración puede leer descriptores USB estándar GET_DESCRIPTOR. Por eso el
-número de operaciones USB queda desconocido; las órdenes de servicio son cero.
-El texto e3t se conserva como observación, sin habilitar otro perfil por nombre.
+El informe está separado de visión y de los otros modelos. No necesitas elegir
+Mavic 3 o Mini 3 para esta lectura. El 100 % indica inventario guardado.
+La lectura no mueve el gimbal, entra en fábrica ni ejecuta comandos de sensores.
+La enumeración puede leer descriptores estándar; no cambia drivers o firmware.
+Si otra aplicación ocupa el USB, ciérrala. Otro PID queda en PnP aunque no esté
+admitido por la fase actual de descriptores libusb0 2CA3:0020.
 
-LÍMITES
-La prueba nueva necesita ejecutarse en el Windows del usuario. Los descriptores
-no prueban transporte de visión, recepción de imágenes o calibración. El 100 %
-significa inventario guardado. Si agota tiempo, se conservan datos parciales.
-Air 3 mantiene bloqueadas las operaciones activas de sensores de Mini 4 Pro.
+Todavía faltan las peticiones, respuestas y modo de taller contrastados para
+las dos rutinas del Flip. El perfil USB no acredita por sí solo compatibilidad.
+DJI-FLIP.md detalla el estado. No se habilitan comandos de otro modelo por analogía.
 
-MINI 4 PRO
-Se conservan las pruebas anteriores con sus límites. El informe de imágenes
-1.6.0 recibido contiene cero imágenes y 48 esperas; su productor y procedimiento
-de calibración siguen pendientes. Consulta VISION-MINI4PRO.md para detalles.
-El receptor propio x86 no se modifica en esta entrega y su fuente se incluye.
+OTROS MODELOS
+Se conservan las funciones anteriores con sus límites. La calibración óptica
+Mini 4 Pro y Air 3 sigue pendiente; sus documentos se incluyen. Los firmware y
+resultados de gimbal se separan al cambiar de modelo y se limpia la preparación
+de fábrica. El receptor de imágenes propio x86 no se modifica en esta entrega.
 
 VALIDACIÓN
-333 pruebas de aplicación/interfaz y 11 de empaquetado aprobadas. El EXE x64 se
-prueba bajo Wine con fixtures y registros históricos, sin hardware DJI. CfgMgr32
-de Wine devuelve longitud USB cero; se conserva como error. El informe 1.7.1
-del usuario sí acredita la lectura PnP en su Windows, no la ruta nueva de descriptores.
-No se ejecutan DLL DJI en cloud ni se redistribuyen DLL/configuraciones/capturas
-originales del usuario. Ver validacion-1.7.2.json y VISION-AIR3.md.
-Fuentes, licencias y scripts de construcción incluidos.
+344 pruebas de aplicación/interfaz y 11 de empaquetado aprobadas. Arranque del
+EXE x64 bajo Wine con fixtures sintéticos y registros históricos. No se ha probado
+la lectura de conexión en un DJI Flip físico. CfgMgr32 de Wine devuelve longitud
+USB cero y se conserva como error, no como inventario real.
+No se ejecutan DLL DJI en cloud ni se distribuyen DLL/configuraciones/capturas
+originales del usuario. Ver validacion-1.8.0.json, fuentes y licencias incluidas.

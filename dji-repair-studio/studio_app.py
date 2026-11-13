@@ -25,9 +25,11 @@ from vision_targets import TARGETS, MINI4_ACTIVE_ACTIONS, require_active_profile
 from vision_usb_inventory import collect_usb_profile, validate_firmware
 from studio_version import VERSION
 from pathlib import Path
+from gimbal_profiles import FLIP, GIMBAL_PROJECTS
+from flip_gimbal_view import FlipGimbalView
 
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
-          'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Air 3','Mini 5 Pro')
+          'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Air 3','Mini 5 Pro',FLIP)
 PROFILE_CODES = {'Mavic 3':'WM260','Mavic 3 Cine':'WM260','Mavic 4 Pro':'MAVIC4PRO','Mini 5 Pro':'MT5MFND'}
 CALIBRATION_ACTIONS = ('JointCoarse','LinearHall','Entrar modo fabrica','Salir modo fabrica','Escuchar progreso (20 s)')
 SN_ACTION='Consultar SN visión (prueba)'
@@ -84,6 +86,7 @@ class StudioApp(tk.Tk):
         self.legacy_gimbal=tk.StringVar(value='JointCoarse')
         self.generator_fields={};self.operation_buttons=[];self.operation_actions=[];self.config_controls=[]
         self._build_ui();self.refresh_ports()
+        self.last_gimbal_model=self.model.get();self.gimbal_firmware_by_model={FLIP:'01.00.1500'}
         self.model.trace_add('write',self.model_changed)
         self.protocol('WM_DELETE_WINDOW',self.close_window)
         self.poll_id=self.after(80,self.poll)
@@ -182,6 +185,10 @@ class StudioApp(tk.Tk):
         self._entry(page,3,'Acción heredada (otros modelos)',self.legacy_gimbal,['JointCoarse','LinearHall'])
         ttk.Label(page,text='Usa los botones del lateral para ejecutar. La calibración heredada mantiene las restricciones del motor original.',wraplength=720).grid(row=4,column=0,columnspan=2,sticky='w',pady=12)
 
+        self.legacy_calibration_widgets=list(page.winfo_children())
+        self.flip_gimbal=FlipGimbalView(page,self.firmware)
+        self.config_controls.append((self.flip_gimbal.firmware_entry,'normal'))
+
     def _build_advanced(self):
         page=self.pages['Parámetros']
         for row,(label,var,values) in enumerate([('Acción',self.fly_action,['list','get','set']),('Índice inicial',self.fly_start,None),('Cantidad',self.fly_count,None),('Nombre de parámetro',self.fly_name,None),('Valor',self.fly_value,None),('Formato',self.fly_format,['simple','1line','2line','tab','csv'])]):self._entry(page,row,label,var,values)
@@ -219,6 +226,8 @@ class StudioApp(tk.Tk):
     def select_page(self,name):self.tabs.select(self.pages[name])
     def reveal_actions(self,event=None):
         if self.tabs.select()==str(self.vision):
+            if self.model.get()==FLIP:
+                self.select_page('Calibración');return
             if not self.running and self.model.get() not in TARGETS:self.model.set('Mini 4 Pro')
             self.after(40,self.scroll_vision_actions)
     def scroll_vision_actions(self):
@@ -281,6 +290,12 @@ class StudioApp(tk.Tk):
 
     def dispatch(self,action):
         if self.running:return
+        if self.model.get()==FLIP and action not in ('Analizar','Generar','Convertir'):
+            if action==USB_PROFILE_ACTION:self.dispatch_flip_profile()
+            else:
+                self.select_page('Calibración')
+                messagebox.showinfo('DJI Flip · gimbal','JointCoarse y LinearHall pendientes de validar para Flip. Usa Recopilar perfil USB.',parent=self)
+            return
         if action in VISION_ACTIONS:self.dispatch_vision(action);return
         if action in ('Analizar','Generar','Convertir'):self.offline(action);return
         if self.model.get() in TARGETS:
@@ -310,7 +325,37 @@ class StudioApp(tk.Tk):
         if action in ('Identificar','Módulos','Diagnóstico'):self.select_page('Registro')
         threading.Thread(target=self.worker,args=(action,po,options),daemon=True).start()
 
+    def dispatch_flip_profile(self):
+        if self.running:return
+        try:
+            firmware=validate_firmware(self.firmware.get().strip())
+            path=filedialog.asksaveasfilename(parent=self,title='DJI Flip · guardar perfil USB del gimbal (no calibra)',
+                defaultextension='.zip',initialfile=time.strftime('DJIFlip-PerfilUSB-%Y%m%d-%H%M%S.zip'),filetypes=[('Perfil USB e informe','*.zip')])
+        except ValueError as exc:messagebox.showerror('Firmware',str(exc),parent=self);return
+        if not path:return
+        self.select_page('Calibración');self.flip_gimbal.clear()
+        self.running=True;self.stop.clear();self.progress_state.reset();self.stage_history=[]
+        self.report={'herramienta':'DJI REPAIR Studio','version':VERSION,'modelo_declarado':FLIP,
+            'firmware_declarado':firmware,'accion':USB_PROFILE_ACTION,'fecha_unix':time.time(),
+            'gimbal':{},'resultado':None,'paquetes':[],'progreso':[]}
+        self._set_busy(True);self.progress_bar.configure(mode='indeterminate');self.progress_bar.start(12)
+        self.status.set('Leyendo conexión USB del DJI Flip; calibración pendiente')
+        threading.Thread(target=self.flip_profile_worker,args=(path,firmware),daemon=True).start()
+
+    def flip_profile_worker(self,path,firmware):
+        try:
+            data=collect_usb_profile(path,FLIP,firmware,cancelled=self.stop.is_set,
+                progress=lambda e:self.events.put(('progress',e)))
+            self.events.put(('flip_profile',data))
+            self.events.put(('error' if data['state']=='error' else 'result',{'estado':data['state'],'detalle':data['detail']}))
+        except Exception as exc:self.events.put(('error',{'estado':'error','detalle':str(exc)}))
+        finally:self.events.put(('done',None))
+
     def dispatch_vision(self,action):
+        if self.model.get()==FLIP:
+            if action==USB_PROFILE_ACTION:self.dispatch_flip_profile()
+            else:messagebox.showinfo('DJI Flip','Usa el proyecto de gimbal y Recopilar perfil USB.',parent=self)
+            return
         self.select_page('Visión Mini 4 Pro')
         if self.model.get() not in TARGETS:self.model.set('Mini 4 Pro')
         snapshot={'format':self.vision.format.get(),'model':self.model.get()}
@@ -445,11 +490,36 @@ class StudioApp(tk.Tk):
         for button,action in zip(self.operation_buttons,self.operation_actions):
             blocked=self.model.get() in TARGETS and action not in VISION_ACTIONS+('Analizar','Generar','Convertir')
             blocked=blocked or (self.model.get()=='Air 3' and action in MINI4_ACTIVE_ACTIONS)
+            blocked=blocked or (self.model.get()==FLIP and action not in (USB_PROFILE_ACTION,'Analizar','Generar','Convertir'))
             button.configure(state='disabled' if busy or blocked else 'normal')
 
     def model_changed(self,*args):
+        selected=self.model.get()
+        if selected!=self.last_gimbal_model:
+            self.gimbal_firmware_by_model[self.last_gimbal_model]=self.firmware.get()
+            self.firmware.set(self.gimbal_firmware_by_model.get(selected,''));self.prepared.set(False)
+            if FLIP in (selected,self.last_gimbal_model) and not self.running:
+                self.flip_gimbal.clear();self.report=None;self.save_button.configure(state='disabled')
+                self.progress_state.reset();self.progress_value.set(0);self.percent_text.set('0 %')
+                self.progress_text.set('Sin operación — 0 %')
+            self.last_gimbal_model=selected
+        self.vision_action_heading.configure(text='DJI FLIP · CONEXIÓN USB' if selected==FLIP else 'VISIÓN · MINI 4 PRO / AIR 3')
+        profile_button=self.operation_buttons[self.operation_actions.index(USB_PROFILE_ACTION)]
+        for button,action in zip(self.operation_buttons,self.operation_actions):
+            if action in VISION_ACTIONS and action!=USB_PROFILE_ACTION:
+                if selected==FLIP:button.pack_forget()
+                elif not button.winfo_manager():button.pack(fill='x',pady=1,before=profile_button)
+        if selected==FLIP:
+            for widget in self.legacy_calibration_widgets:widget.grid_remove()
+            self.flip_gimbal.grid(row=0,column=0,columnspan=2,sticky='nsew')
+            if not self.running:self.select_page('Calibración')
+            self.action_canvas.yview_moveto(1)
+        else:
+            self.flip_gimbal.grid_remove()
+            for widget in self.legacy_calibration_widgets:widget.grid()
         self.sync_operation_buttons(self.running)
         self.connection_text.set('Air 3 · 01.00.1600 declarado · PnP observado; visión pendiente' if self.model.get()=='Air 3' else 'Mini 4 Pro: USB, consulta SN y diagnóstico HMS experimental' if self.model.get()=='Mini 4 Pro' else 'Consulta pendiente para el modelo seleccionado')
+        if self.model.get()==FLIP:self.connection_text.set('DJI Flip · 01.00.1500 declarado · gimbal de taller pendiente')
         if self.model.get() in TARGETS:
             self.vision.set_target(self.model.get())
             if not self.running:self.select_page('Visión Mini 4 Pro')
@@ -518,6 +588,8 @@ class StudioApp(tk.Tk):
             while True:
                 kind,data=self.events.get_nowait()
                 if kind=='log':self.append(data)
+                elif kind=='flip_profile':
+                    self.flip_gimbal.apply_report(data);self.report['gimbal']={'usb_profile':data}
                 elif kind=='vision':
                     self.vision.apply_report(data['category'],data['data']);self.report['vision']=dict(self.vision.reports)
                 elif kind=='progress':

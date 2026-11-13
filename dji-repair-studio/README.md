@@ -1,50 +1,37 @@
-# DJI REPAIR Studio 1.7.2
+# DJI REPAIR Studio 1.8.0
 
-Windows 10/11 x64, una ventana, botones laterales y progreso. Visión para
-Mini 4 Pro y Air 3 en desarrollo. **La calibración óptica aún no está implementada.**
+Windows 10/11 x64, una ventana con botones laterales. Se añade el **proyecto de
+gimbal DJI Flip**, firmware **01.00.1500 declarado** por el usuario.
+**JointCoarse y LinearHall del Flip todavía no están implementadas.**
 
-[Descarga](../downloads/LEEME.md) · [Air 3](VISION-AIR3.md) ·
-[Mini 4 Pro](VISION-MINI4PRO.md) · [Estado](ESTADO-VISION-2026-11-06.md)
+[Descarga](../downloads/LEEME.md) · [DJI Flip](DJI-FLIP.md) ·
+[Mini 4 Pro](VISION-MINI4PRO.md) · [Air 3](VISION-AIR3.md)
 
-## Perfil Air 3 recibido
+## Cambio de esta versión
 
-El informe 1.7.1 recibido del Windows del usuario contiene ocho nodos PnP,
-un padre físico, VID/PID 2CA3:0020 y prefijo de producto `e3t`. Las interfaces
-observadas son 00, 02 y 03–07. No hay códigos de problema PnP distintos de cero;
-esto no evalúa salud de sensores. El nombre `e3t` se conserva sin convertirlo
-en un alias de compatibilidad del Air 3, declarado por el usuario.
+Flip tiene una vista propia en Calibración y lectura de conexión USB. El botón
+Recopilar perfil USB genera un ZIP con `gimbal.usb_profile`. El firmware se
+conserva por modelo; la preparación de fábrica y resultados previos se limpian
+al cambiar de equipo. Los eventos de la vista de visión no cambian Flip a Mini 4.
+Las operaciones heredadas quedan bloqueadas para Flip antes de abrir transporte.
+No se asigna un código interno ni se copian comandos de otro modelo.
 
-## Cambio 1.7.2
+Para continuar: selecciona DJI Flip, revisa 01.00.1500 y pulsa Recopilar perfil USB.
+Comparte DJIFlip-PerfilUSB-….zip. Esa lectura no mueve ni calibra el gimbal. Hace
+falta además contrastar el modo de taller, peticiones y respuestas de ambas
+rutinas para este modelo. Los descriptores por sí solos no resuelven eso.
 
-**Recopilar perfil USB** ahora añade descriptores USB estándar al ZIP existente
-y muestra los endpoints observados en la misma interfaz. Enumera con la biblioteca
-libusb0 verificada y lee su caché de configuraciones, interfaces, alternativas y
-endpoints. La enumeración puede solicitar GET_DESCRIPTOR. Se compara el nodo
-actual de cada alias con el inventario PnP de esa sesión; no se seleccionan alias
-por posición ni se cambia el nombre `e3t` para habilitar otro perfil.
+Se mantienen las funciones anteriores de otros modelos con sus límites. La
+calibración óptica Mini 4 Pro/Air 3 sigue pendiente; sus rutas de sensores se
+mantienen separadas de Flip. [Estado de visión](ESTADO-VISION-2026-11-06.md).
 
-No reclama interfaces, lee bulk, envía órdenes de sensores, cambia configuración
-o instala controladores. No se consulta configuración activa. Los descriptores
-no prueban transporte de visión ni compatibilidad de calibración. El contador de
-operaciones USB queda desconocido si la biblioteca solicita descriptores; no se
-publica un cero de operaciones para esa fase. Las órdenes de servicio siguen en cero.
+## Desarrollo y validación
 
-## Uso y validación
-
-Extrae el ZIP nuevo y abre DJI REPAIR Studio 1.7.2.exe. Selecciona Air 3,
-firmware declarado 01.00.1600, Visión de sensores → Recopilar perfil USB.
-Guarda y comparte el nuevo ZIP, incluso si muestra error. No necesitas exportar
-manualmente el reporte de UsbTreeView para esta prueba.
-
-333 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 probado bajo Wine
-con fixtures y corpus históricos. La ruta nueva de descriptores requiere prueba
-en el Windows del usuario; no hay un dron conectado en cloud. CfgMgr32 de Wine
-devuelve tamaño USB cero y se conserva como error; no se simula un dispositivo.
-El usuario sí aportó el inventario PnP completo de la versión 1.7.1 en Windows.
-
-Desarrollo: Python 3.13/Tk, `python launch.py`,
-`python -m unittest discover -s tests -v`; compilación `build_windows.ps1`.
-Se conservan las funciones Mini 4 Pro anteriores con sus límites. El receptor
-x86 propio no se modifica; su fuente y registro de construcción se incluyen.
-No se ejecutan programas DJI en cloud ni se redistribuyen sus DLL, configuraciones
-o capturas originales. Fuentes y licencias incluidas.
+Python 3.13/Tk. `python launch.py` y `python -m unittest discover -s tests -v`.
+Compilación en Windows: build_windows.ps1. Fuentes y licencias incluidas.
+344 pruebas de aplicación/interfaz y 11 de empaquetado. Arranque x64 bajo Wine,
+fixtures sintéticos y corpus históricos; sin hardware Flip en cloud. El receptor
+x86 propio se conserva; no se reconstruye ni se prueba su arranque en este kernel.
+El inventario puede leer descriptores estándar; no consulta sensores o cambia
+configuración. CfgMgr32 de Wine devuelve longitud USB cero y se guarda como error.
+No se ejecutan programas DJI en cloud ni se redistribuyen sus DLL o registros.
