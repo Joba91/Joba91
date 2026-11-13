@@ -448,6 +448,16 @@ def main():
                 'released_interface':4,'gimbal_scoped_zip':True,'factory_commands':0,'calibration_commands':0,
                 'calibration_available':False,'real_usb_operations':0,'ui_rows':2}
         from flip_gimbal_calibration import run_flip_calibration,FlipCalibrationTransport
+        from usb.backend import libusb0
+        from usb.core import USBError,USBTimeoutError
+        # Exercise PyUSB's Windows errno mapping with a synthetic C ABI return.
+        saved_library=libusb0._lib
+        try:
+            libusb0._lib=SimpleNamespace(usb_strerror=lambda:b'SYNTHETIC libusb0 timeout')
+            try:libusb0._check(-116)
+            except USBError as exc:idle_error=exc
+        finally:libusb0._lib=saved_library
+        assert idle_error.backend_error_code==-116
         # Standalone synthetic workshop trace, not a real Flip calibration.
         with tempfile.TemporaryDirectory(prefix='dji-flip-cal-smoke-') as folder:
             croot=Path(folder);reference_path=croot/'modules.zip'
@@ -464,6 +474,11 @@ def main():
                     packet(4,10,700,4,0x30,b'\x52\1',flags=0)+packet(4,10,701,4,0x30,b'\x64\0',flags=0))
                 return len(req)
             out_ep.write=calibration_write
+            def calibration_read(size,timeout):
+                qclock.value+=.25
+                if not pending:raise idle_error
+                return pending.pop(0)
+            in_ep.read=calibration_read
             def calibration_factory(ref,routine):
                 return FlipCalibrationTransport(ref,routine,enumerator=lambda:[dev],selector=lambda ds:(ds[0],{'synthetic':True}),
                     parent_reader=lambda d:{k:ref[k] for k in ('product','child_instance_sha256','parent_instance_sha256')},util=util)
@@ -480,6 +495,13 @@ def main():
                 'factory_commands':0,'fixed_imu_coefficients_written':False,'released_interface':4,
                 'gimbal_scoped_zip':True,'ui_rows':len(app.flip_gimbal.nodes.get_children()),'real_usb_operations':0,
                 'physical_flip_tested':False}
+            assert trial['usb_evidence']['read_timeouts']>0
+            report['libusb0_timeout_abi_synthetic_test']={'backend_error_code':-116,
+                'python_errno_etimedout':libusb0.errno.ETIMEDOUT,
+                'pyusb_typed_timeout':isinstance(idle_error,USBTimeoutError),
+                'idle_reads_handled':trial['usb_evidence']['read_timeouts'],
+                'single_calibration_request':trial['calibration_requests_attempted']==1,
+                'real_usb_operations':0}
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

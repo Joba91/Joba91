@@ -19,6 +19,9 @@ from vision_usb_parent import parent_product_for_device
 from vision_support_bundle import write_support_bundle
 
 MAX_RX=65536
+# Pinned libusb-win32 1.4.0.2 src/error.h: ETRANSFER_TIMEDOUT=116.
+# This is the libusb0 ABI, not the host Python errno or a libusb1 error code.
+LIBUSB0_TRANSFER_TIMEDOUT=-116
 
 def load_reference(path,firmware):
     validate_firmware(firmware)
@@ -126,7 +129,15 @@ class FlipVersionTransport:
     def read(self):
         if len(self.rx)>=self.rx_limit:raise RuntimeError('Límite de recepción alcanzado.')
         try:chunk=bytes(self.ep_in.read(512,timeout=200))
-        except self.core.USBTimeoutError:return b''
+        except self.core.USBError as exc:
+            detail={'type':type(exc).__name__,'errno':exc.errno,
+                    'backend_error_code':exc.backend_error_code,'winerror':getattr(exc,'winerror',None)}
+            if isinstance(exc,self.core.USBTimeoutError) or exc.backend_error_code==LIBUSB0_TRANSFER_TIMEDOUT:
+                self.evidence['read_timeouts']=self.evidence.get('read_timeouts',0)+1
+                self.evidence['last_read_timeout']=detail
+                return b''
+            self.evidence['read_error']=detail
+            raise
         if len(chunk)>512:raise ValueError('Lectura superior al tamaño permitido.')
         remaining=self.rx_limit-len(self.rx)
         self.rx.extend(chunk[:remaining])

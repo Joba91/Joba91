@@ -1,4 +1,4 @@
-# DJI Flip · pruebas de taller del gimbal · 1.9.0
+# DJI Flip · pruebas de taller del gimbal · 1.9.1
 
 Firmware de aeronave **01.00.1500 declarado por el usuario**. Se incorporan
 **JointCoarse y LinearHall como pruebas experimentales** con la petición común
@@ -20,7 +20,21 @@ ni fábrica. El orden de alias cambió y se identificó MI04 por metadatos.
 
 ## Ejecutar una prueba
 
-1. Extrae la versión nueva y abre DJI REPAIR Studio 1.9.0.exe.
+La captura JointCoarse de 1.9.0 se detuvo antes de transmitir la calibración:
+400 bytes RX, seis tramas de CRC válido y las dos versiones coincidentes, pero
+cero peticiones 04/08. El error fue el timeout de libusb0 durante el vaciado
+previo. El informe antiguo no guardaba su código numérico. En la biblioteca
+fijada 1.4.0.2, esa rama devuelve ETRANSFER_TIMEDOUT (-116); PyUSB en Windows
+puede convertirlo en USBError genérico por la diferencia con errno.ETIMEDOUT.
+1.9.1 reconoce ese código exacto y USBTimeoutError como lectura sin datos.
+Otros errores siguen deteniendo la prueba. El informe guarda códigos y contador
+de timeouts. Esto corrige la preparación; no confirma compatibilidad Flip.
+
+Repite primero JointCoarse con el mismo **DJIFlip-Modulos-20261113-134015.zip**.
+El ZIP de JointCoarse fallido no sustituye la referencia de módulos. No necesitas
+recopilar otro perfil USB si el mismo dispositivo sigue asociado a la referencia.
+
+1. Extrae la versión nueva y abre DJI REPAIR Studio 1.9.1.exe.
 2. Selecciona **DJI Flip / USB bulk** y revisa firmware declarado **01.00.1500**.
 3. Pulsa **JointCoarse · prueba Flip** o **LinearHall · prueba Flip**.
 4. Elige tu **DJIFlip-Modulos-….zip** con las dos respuestas de versión recibidas.
@@ -87,11 +101,13 @@ fijos desde la herramienta. Ante entrega USB incierta tampoco se reenvía.
 
 ## Validación y procedencia
 
-373 pruebas de aplicación/interfaz y 11 de empaquetado. Casos de dos rutinas,
+379 pruebas de aplicación/interfaz y 11 de empaquetado. Casos de dos rutinas,
 progreso previo, referencia alterada, versión actual distinta, ACK solo, rechazo,
 secuencia errónea, timeout, desconexión, cancelación y entrega incompleta.
 El EXE se ejecuta bajo Wine con transporte sintético. No hay calibración física
 de Flip en cloud y los datos sintéticos se identifican como tales.
+Incluye regresiones de timeout libusb0 genérico, silencio repetido sin éxito,
+error USB real antes de calibrar y reproducción de la conversión PyUSB en Windows.
 
 Las formas comunes de petición/informes se contrastan con la referencia pública:
 https://github.com/o-gs/dji-firmware-tools/blob/master/comm_og_service_tool.py

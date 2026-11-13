@@ -1,8 +1,15 @@
-DJI REPAIR STUDIO 1.9.0 — Windows 10/11 x64
+DJI REPAIR STUDIO 1.9.1 — Windows 10/11 x64
 
-Extrae el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.9.0.exe.
+Extrae el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.9.1.exe.
 DJI Flip: pruebas experimentales JointCoarse y LinearHall, firmware declarado
 01.00.1500. Compatibilidad Flip todavía sin validar físicamente.
+
+CORRECCIÓN 1.9.1
+La captura JointCoarse 1.9.0 terminó antes de enviar la calibración, por un
+timeout de libusb0 interpretado como error genérico. Se corrige el código -116
+de la biblioteca incluida; desconexión/acceso y otros errores siguen deteniendo
+la prueba. Repite JointCoarse con DJIFlip-Modulos-20261113-134015.zip como
+referencia. No selecciones como referencia el ZIP de JointCoarse fallido.
 
 PRIMERA PRUEBA — JOINTCOARSE
 1. Conecta solo el Flip. Selecciona DJI Flip / USB bulk y revisa 01.00.1500.
@@ -38,8 +45,8 @@ escritura no hay reintento. Las versiones de módulo siguen siendo observaciones
 no el firmware de aeronave. Datos de referencia y nodo deben coincidir.
 
 VALIDACIÓN
-373 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 bajo Wine con
+379 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 bajo Wine con
 calibración sintética, sin hardware Flip en cloud. No se cargan DLL propietarias
 DJI en desarrollo ni se redistribuyen los ZIP/identificadores originales.
-Fuentes/licencias y validacion-1.9.0.json incluidos. DJI-FLIP.md detalla los límites.
+Fuentes/licencias y validacion-1.9.1.json incluidos. DJI-FLIP.md detalla los límites.
 Las funciones anteriores conservan sus avisos; visión Mini 4 Pro/Air 3 pendiente.

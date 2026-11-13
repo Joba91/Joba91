@@ -1,4 +1,9 @@
-# DJI REPAIR Studio 1.9.0
+# DJI REPAIR Studio 1.9.1
+
+Corrige la lectura Flip cuando libusb-win32 devuelve su timeout ABI -116 como
+USBError genérico. La prueba JointCoarse recibida de 1.9.0 falló en la lectura
+previa y no transmitió ninguna orden de calibración. Repetir primero JointCoarse
+con el mismo ZIP de módulos 1.8.1; compatibilidad Flip aún experimental.
 
 Windows 10/11 x64, una interfaz. Se incorporan **pruebas experimentales de
 JointCoarse y LinearHall para DJI Flip**, firmware **01.00.1500 declarado**.
@@ -28,7 +33,7 @@ auditoría y errores; cancelar detiene lectura, no motores. [Uso y límites](DJI
 
 ## Validación
 
-373 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 bajo Wine con
+379 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 bajo Wine con
 trazas sintéticas, incluidos límites de una petición y rechazo de fábrica.
 No hay Flip físico en cloud. El receptor propio x86 y las funciones previas
 mantienen sus límites; calibración óptica Mini 4 Pro/Air 3 todavía pendiente.

@@ -129,6 +129,39 @@ class TransportTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):self.t.read()
         self.assertEqual(len(self.t.rx),MAX_RX)
 
+    def test_pinned_libusb0_timeout_and_typed_timeout_are_idle_reads(self):
+        from usb.core import USBError,USBTimeoutError
+        for error in (USBError('SYNTHETIC timeout',-116),USBTimeoutError('SYNTHETIC timeout',-110,110)):
+            with self.subTest(error=type(error).__name__):
+                self.exchange.inside.read.side_effect=error
+                self.assertEqual(self.t.read(),b'')
+                self.assertEqual(self.t.evidence['last_read_timeout']['backend_error_code'],error.backend_error_code)
+        self.assertEqual(self.t.evidence['read_timeouts'],2)
+        self.assertEqual(self.t.rx,b'');self.exchange.out.write.assert_not_called()
+
+    def test_other_usb_errors_are_not_hidden_even_when_text_says_timeout(self):
+        from usb.core import USBError
+        for code in (None,-5,-19,-4,-110):
+            with self.subTest(code=code):
+                error=USBError('timeout error',code)
+                self.exchange.inside.read.side_effect=error
+                with self.assertRaises(USBError) as caught:self.t.read()
+                self.assertIs(caught.exception,error)
+                self.assertEqual(self.t.evidence['read_error']['backend_error_code'],code)
+        self.assertNotIn('read_timeouts',self.t.evidence)
+
+    def test_pyusb_windows_errno_mismatch_reproduces_generic_timeout(self):
+        from unittest.mock import patch
+        from usb.backend import libusb0
+        from usb.core import USBError,USBTimeoutError
+        with patch.object(libusb0,'_lib',Mock(usb_strerror=lambda:b'SYNTHETIC libusb0 timeout')),patch.object(libusb0.errno,'ETIMEDOUT',138):
+            with self.assertRaises(USBError) as caught:libusb0._check(-116)
+        self.assertNotIsInstance(caught.exception,USBTimeoutError)
+        self.assertEqual(caught.exception.backend_error_code,-116)
+        self.assertIsNone(caught.exception.errno)
+        self.exchange.inside.read.side_effect=caught.exception
+        self.assertEqual(self.t.read(),b'')
+
 class QueryTests(unittest.TestCase):
     def setUp(self):self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name);self.profile=save_reference(self.root/'profile.zip')
     def tearDown(self):self.temp.cleanup()

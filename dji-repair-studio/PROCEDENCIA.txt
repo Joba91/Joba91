@@ -1,7 +1,7 @@
 DJI REPAIR Studio
 
 Base y motor de servicio: archivos facilitados por el usuario.
-Interfaz unificada: studio_app.py y launch.py, versión 1.9.0.
+Interfaz unificada: studio_app.py y launch.py, versión 1.9.1.
 Protocolos de calibración: reimplementación a partir del material MyMavCaliTool3 /
 YanDron suministrado por el usuario. No se ejecutan ni distribuyen sus DLL .NET.
 No se incluye su bloque fijo de escritura IMU.
@@ -141,3 +141,12 @@ interfaz de rescate. El firmware puede persistir ajustes de su propia rutina;
 no se ha caracterizado. Resultado device-reported, no validación metrológica.
 Se contrastó la captura de módulos del usuario: 185 bytes, tres tramas válidas y
 dos respuestas correlacionadas. Su BIN/JSON y números de serie quedan privados.
+
+Revisión 1.9.1: corrección propia del tratamiento de ETRANSFER_TIMEDOUT=-116
+en el transporte Flip. Fuente ABI: libusb-win32 1.4.0.2 src/error.h y windows.c,
+incluidos en el paquete de fuentes de la biblioteca. PyUSB puede emitir USBError
+genérico en Windows porque usa errno.ETIMEDOUT de Python. Se admite únicamente
+ese código del backend fijado o USBTimeoutError; otros errores se propagan.
+Se guardan códigos y contador de lecturas agotadas. Captura 1.9.0 del usuario:
+dos versiones coincidentes, 400 bytes/6 tramas válidas, cero órdenes 04/08;
+no demuestra rechazo ni calibración. No se redistribuye la captura original.

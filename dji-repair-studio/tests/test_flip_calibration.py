@@ -27,6 +27,7 @@ class CalibrationFixture:
                 if scenario=='already_busy' and req[5]==4:self.pending.append(report(b'\x52\1'))
                 return len(req)
             if scenario=='short_write':return 3
+            if scenario=='libusb0_silent':return len(req)
             seq=int.from_bytes(req[6:8],'little')
             ack_payload=b'\xfb' if scenario=='fb' else (b'\x99' if scenario=='unknown_ack' else b'\1')
             ack=packet(4,10,seq+(1 if scenario=='wrong_ack_seq' and seq<65535 else 0),4,8,ack_payload,flags=128)
@@ -41,6 +42,9 @@ class CalibrationFixture:
         def read(size,timeout):
             self.clock.value+=.2
             if scenario=='disconnect' and any(r[9:11]==b'\4\10' for r in self.sent):raise OSError('SYNTHETIC disconnected')
+            if not self.pending and scenario in ('libusb0_idle','libusb0_silent','usb_error_before_cal'):
+                from usb.core import USBError
+                raise USBError('SYNTHETIC libusb0 read',-5 if scenario=='usb_error_before_cal' else -116)
             return self.pending.pop(0) if self.pending else b''
         self.out.write.side_effect=write;self.inside.read.side_effect=read
         self.transport=FlipCalibrationTransport(ref,routine,enumerator=lambda:[self.device],
@@ -74,6 +78,31 @@ class CalibrationTests(unittest.TestCase):
                 with ZipFile(self.root/'cal.zip') as z:
                     data=json.loads(z.read('DJI-REPAIR-informe.json'))['gimbal']['calibration_probe']
                     self.assertEqual(data['state'],'equipo_informa_fin');self.assertEqual(len(z.read('cal.bin')),r['rx_bytes'])
+    def test_libusb0_idle_before_request_allows_one_probe_for_each_routine(self):
+        for routine in ('JointCoarse','LinearHall'):
+            with self.subTest(routine=routine):
+                r=self.run_probe(routine,scenario='libusb0_idle')
+                self.assertEqual(r['state'],'equipo_informa_fin')
+                self.assertEqual(r['calibration_requests_attempted'],1)
+                self.assertEqual(self.fixture.out.write.call_count,3)
+                self.assertGreater(r['usb_evidence']['read_timeouts'],0)
+                self.assertEqual(r['usb_evidence']['last_read_timeout']['backend_error_code'],-116)
+
+    def test_repeated_libusb0_idle_after_probe_is_not_completion_or_retry(self):
+        events=[];r=self.run_probe(scenario='libusb0_silent',progress=events.append)
+        self.assertNotEqual(r['state'],'equipo_informa_fin')
+        self.assertFalse(r['device_reported_completion'])
+        self.assertFalse(any(e.get('percent')==100 for e in events))
+        self.assertEqual(r['calibration_requests_attempted'],1)
+        self.assertEqual(self.fixture.out.write.call_count,3)
+        self.assertGreater(r['usb_evidence']['read_timeouts'],1)
+
+    def test_real_usb_error_in_drain_stops_before_calibration_and_saves_code(self):
+        r=self.run_probe(scenario='usb_error_before_cal')
+        self.assertEqual(r['state'],'error')
+        self.assertEqual(r['calibration_requests_attempted'],0)
+        self.assertEqual(r['usb_evidence']['read_error']['backend_error_code'],-5)
+        self.assertEqual(self.fixture.out.write.call_count,2)
     def test_ack_only_unknown_ack_terminal_only_and_wrong_sequence_are_not_success(self):
         for scenario in ('ack_only','unknown_ack','terminal_only','wrong_ack_seq','wrong_sender'):
             with self.subTest(scenario=scenario):
