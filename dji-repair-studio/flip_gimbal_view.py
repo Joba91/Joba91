@@ -14,8 +14,8 @@ class FlipGimbalView(ttk.Frame):
         ttk.Label(self,text='Objetivo: JointCoarse y LinearHall · pendientes de validar para Flip.\n'
                   'Faltan el protocolo de modo de taller y las peticiones/respuestas de calibración de este modelo.\n'
                   'No se ejecutan las rutinas de otro dron al seleccionar Flip.\n\n'
-                  'Para obtener su conexión: pulsa «Recopilar perfil USB» en el lateral y comparte el ZIP.\n'
-                  'Esta lectura recoge PnP y descriptores estándar; no calibra ni mueve el gimbal.',
+                  'Pulsa «Consultar FC y gimbal (Flip)», elige tu ZIP de perfil USB y guarda el ZIP de consulta.\n'
+                  'Dos consultas de versión 00/01, sin reenvío. No calibra ni mueve el gimbal.',
                   wraplength=820,justify='left').grid(row=2,column=0,columnspan=2,sticky='w',pady=10)
         self.summary=tk.StringVar();ttk.Label(self,textvariable=self.summary,wraplength=820).grid(row=3,column=0,columnspan=2,sticky='w',pady=6)
         self.nodes=ttk.Treeview(self,columns=('product','driver','endpoints'),show='tree headings',height=5)
@@ -28,7 +28,9 @@ class FlipGimbalView(ttk.Frame):
         self.clear()
 
     def clear(self):
-        self.summary.set('Sin perfil USB leído para esta sesión. La calibración no está disponible.')
+        self.summary.set('Sin consulta de versiones en esta sesión. La calibración no está disponible.')
+        for key,text in [('#0','Nodo'),('product','Nombre de Windows'),('driver','Controlador'),('endpoints','Endpoints observados')]:
+            self.nodes.heading(key,text=text)
         self.nodes.delete(*self.nodes.get_children())
         self.evidence.configure(state='normal');self.evidence.delete('1.0','end');self.evidence.configure(state='disabled')
 
@@ -49,4 +51,12 @@ class FlipGimbalView(ttk.Frame):
             label='MI'+m[1].upper() if m else 'Padre USB'
             ep='; '.join(dict.fromkeys(descriptors.get(int(m[1],16),[]))) if m else ''
             self.nodes.insert('','end',text=label,values=(row.get('bus_product') or row.get('friendly_name') or '—',row.get('service') or '—',ep or '—'))
+        self.evidence.configure(state='normal');self.evidence.insert('1.0',json.dumps(data,ensure_ascii=False,indent=2));self.evidence.configure(state='disabled')
+
+    def apply_module_report(self,data):
+        self.clear();self.summary.set(data.get('detail','Sin respuesta reconocida.'))
+        for key,text in [('#0','Módulo'),('product','Hardware observado'),('driver','Versión de módulo'),('endpoints','Resultado')]:
+            self.nodes.heading(key,text=text)
+        for row in data.get('modules',[]):
+            self.nodes.insert('','end',text=row['modulo'],values=(row.get('hardware','—'),row.get('firmware_modulo','—'),row['estado']))
         self.evidence.configure(state='normal');self.evidence.insert('1.0',json.dumps(data,ensure_ascii=False,indent=2));self.evidence.configure(state='disabled')

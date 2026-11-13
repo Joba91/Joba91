@@ -387,7 +387,7 @@ def main():
             app.after(150,app.quit);app.mainloop()
             assert app.model.get()==FLIP
             allowed={a for b,a in zip(app.operation_buttons,app.operation_actions) if str(b['state'])=='normal'}
-            assert allowed=={USB_PROFILE_ACTION,'Analizar','Generar','Convertir'}
+            assert allowed=={USB_PROFILE_ACTION,'Identificar','Analizar','Generar','Convertir'}
             with ZipFile(flip_zip) as archive:
                 stored=json.loads(archive.read('DJI-REPAIR-informe.json'))
             assert 'gimbal' in stored and 'vision' not in stored
@@ -395,6 +395,58 @@ def main():
                 'gimbal_workspace_visible':True,'ui_rows':len(app.flip_gimbal.nodes.get_children()),
                 'gimbal_scoped_zip':True,'calibration_available':False,'factory_commands_sent':0,
                 'service_commands_sent':0,'real_usb_operations':0,'model_preserved_in_event_loop':True}
+        from flip_gimbal_query import query_flip_modules,FlipVersionTransport
+        with tempfile.TemporaryDirectory(prefix='dji-flip-query-smoke-') as folder:
+            qroot=Path(folder);parent_id='USB\\VID_2CA3&PID_0020\\SYNTHETIC'
+            child_id='USB\\VID_2CA3&PID_0020&MI_04\\SYNTHETIC_CHILD'
+            ep_ref=[{'bEndpointAddress':4,'bmAttributes':2,'wMaxPacketSize':512},
+                    {'bEndpointAddress':0x85,'bmAttributes':2,'wMaxPacketSize':512}]
+            iref={'bInterfaceNumber':4,'bAlternateSetting':0,'bInterfaceClass':255,'bInterfaceSubClass':0x43,
+                  'bInterfaceProtocol':1,'bNumEndpoints':2,'endpoints':ep_ref}
+            rows=[dict(raw['devices'][0]),dict(raw['devices'][0])]
+            rows[0].update(instance_id=parent_id,bus_product='DJI-SYNTHETIC')
+            rows[1].update(instance_id=child_id,parent=parent_id,bus_product='BULK Interface')
+            profile={'modelo_declarado':FLIP,'firmware_declarado':'01.00.1500','gimbal':{'usb_profile':{
+                'devices':rows,'collection_complete':True,'descriptor_inventory':{'state':'confirmado','errors':[],
+                'aliases':[{'pnp_interface_number':4,'complete':True,'pnp_instance_matches':True,
+                'configurations':[{'bConfigurationValue':1,'interfaces':[iref]}]}]}}}}
+            reference_path=qroot/'profile.zip'
+            with ZipFile(reference_path,'x') as z:z.writestr('DJI-REPAIR-informe.json',json.dumps(profile))
+            qclock=SyntheticClock();pending=[];released=[]
+            def out_write(req,timeout):
+                assert timeout==500
+                payload=b'\0\0'+b'SYNTHETIC-MODULE'.ljust(16,b'\0')+bytes(4)+(0x04000007).to_bytes(4,'little')
+                pending.append(packet(req[5],10,int.from_bytes(req[6:8],'little'),0,1,payload,flags=128))
+                return len(req)
+            def in_read(size,timeout):
+                assert size==512 and timeout==200
+                qclock.value+=.25
+                return pending.pop(0) if pending else b''
+            class QueryList(list):pass
+            out_ep=SimpleNamespace(bEndpointAddress=4,bmAttributes=2,wMaxPacketSize=512,write=out_write)
+            in_ep=SimpleNamespace(bEndpointAddress=0x85,bmAttributes=2,wMaxPacketSize=512,read=in_read)
+            iface=QueryList([out_ep,in_ep])
+            for key,val in iref.items():
+                if key!='endpoints':setattr(iface,key,val)
+            cfg=QueryList([iface]);cfg.bConfigurationValue=1
+            dev=SimpleNamespace(get_active_configuration=lambda:cfg)
+            util=SimpleNamespace(claim_interface=lambda d,i:None,release_interface=lambda d,i:released.append(i),dispose_resources=lambda d:None)
+            def transport_factory(ref):
+                return FlipVersionTransport(ref,enumerator=lambda:[dev],selector=lambda ds:(ds[0],{'synthetic':True}),
+                    parent_reader=lambda d:ref,util=util)
+            events=[]
+            query=query_flip_modules(qroot/'query.zip',reference_path,'01.00.1500',transport_factory=transport_factory,
+                clock=qclock,progress=events.append)
+            assert query['state']=='confirmado' and released==[4]
+            assert query['rx_bytes']==78 and query['bulk_out_bytes_confirmed']==26
+            assert query['factory_commands_sent']==query['gimbal_calibration_commands_sent']==0
+            app.flip_gimbal.apply_module_report(query);app.update()
+            assert len(app.flip_gimbal.nodes.get_children())==2
+            with ZipFile(qroot/'query.zip') as z:
+                assert z.read('query.bin') and 'module_query' in json.loads(z.read('DJI-REPAIR-informe.json'))['gimbal']
+            report['flip_module_query_synthetic_test']={'modules':2,'rx_bytes':78,'bulk_out_bytes':26,'last_percent':events[-1]['percent'],
+                'released_interface':4,'gimbal_scoped_zip':True,'factory_commands':0,'calibration_commands':0,
+                'calibration_available':False,'real_usb_operations':0,'ui_rows':2}
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

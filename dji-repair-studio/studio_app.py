@@ -27,6 +27,7 @@ from studio_version import VERSION
 from pathlib import Path
 from gimbal_profiles import FLIP, GIMBAL_PROJECTS
 from flip_gimbal_view import FlipGimbalView
+from flip_gimbal_query import query_flip_modules,load_reference
 
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
           'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Air 3','Mini 5 Pro',FLIP)
@@ -292,6 +293,7 @@ class StudioApp(tk.Tk):
         if self.running:return
         if self.model.get()==FLIP and action not in ('Analizar','Generar','Convertir'):
             if action==USB_PROFILE_ACTION:self.dispatch_flip_profile()
+            elif action=='Identificar':self.dispatch_flip_query()
             else:
                 self.select_page('Calibración')
                 messagebox.showinfo('DJI Flip · gimbal','JointCoarse y LinearHall pendientes de validar para Flip. Usa Recopilar perfil USB.',parent=self)
@@ -324,6 +326,36 @@ class StudioApp(tk.Tk):
         self.status.set('Ejecutando: '+action);self.append('>>> '+action+' · '+self.model.get())
         if action in ('Identificar','Módulos','Diagnóstico'):self.select_page('Registro')
         threading.Thread(target=self.worker,args=(action,po,options),daemon=True).start()
+
+    def dispatch_flip_query(self):
+        if self.running:return
+        try:
+            firmware=validate_firmware(self.firmware.get().strip())
+            if self.mode.get()!='bulk':raise ValueError('La consulta del Flip requiere USB bulk.')
+            profile=filedialog.askopenfilename(parent=self,title='Elige DJIFlip-PerfilUSB-….zip para asociar el equipo',filetypes=[('Perfil USB del Flip','*.zip')])
+            if not profile:return
+            load_reference(profile,firmware)
+            path=filedialog.asksaveasfilename(parent=self,title='Guardar consulta de versiones del Flip (no calibra)',
+                defaultextension='.zip',initialfile=time.strftime('DJIFlip-Modulos-%Y%m%d-%H%M%S.zip'),filetypes=[('Consulta e informe','*.zip')])
+        except Exception as exc:messagebox.showerror('Consulta Flip',str(exc),parent=self);return
+        if not path:return
+        self.select_page('Calibración');self.flip_gimbal.clear()
+        self.running=True;self.stop.clear();self.progress_state.reset();self.stage_history=[]
+        self.report={'herramienta':'DJI REPAIR Studio','version':VERSION,'modelo_declarado':FLIP,
+            'firmware_declarado':firmware,'accion':'Identificar','fecha_unix':time.time(),
+            'gimbal':{},'resultado':None,'paquetes':[],'progreso':[]}
+        self._set_busy(True);self.progress_bar.configure(mode='indeterminate');self.progress_bar.start(12)
+        self.status.set('Consultando versión de controlador y gimbal del Flip; no calibra')
+        threading.Thread(target=self.flip_query_worker,args=(path,profile,firmware),daemon=True).start()
+
+    def flip_query_worker(self,path,profile,firmware):
+        try:
+            data=query_flip_modules(path,profile,firmware,cancelled=self.stop.is_set,
+                progress=lambda e:self.events.put(('progress',e)))
+            self.events.put(('flip_query',data))
+            self.events.put(('error' if data['state']=='error' else 'result',{'estado':data['state'],'detalle':data['detail']}))
+        except Exception as exc:self.events.put(('error',{'estado':'error','detalle':str(exc)}))
+        finally:self.events.put(('done',None))
 
     def dispatch_flip_profile(self):
         if self.running:return
@@ -490,7 +522,7 @@ class StudioApp(tk.Tk):
         for button,action in zip(self.operation_buttons,self.operation_actions):
             blocked=self.model.get() in TARGETS and action not in VISION_ACTIONS+('Analizar','Generar','Convertir')
             blocked=blocked or (self.model.get()=='Air 3' and action in MINI4_ACTIVE_ACTIONS)
-            blocked=blocked or (self.model.get()==FLIP and action not in (USB_PROFILE_ACTION,'Analizar','Generar','Convertir'))
+            blocked=blocked or (self.model.get()==FLIP and action not in (USB_PROFILE_ACTION,'Identificar','Analizar','Generar','Convertir'))
             button.configure(state='disabled' if busy or blocked else 'normal')
 
     def model_changed(self,*args):
@@ -503,6 +535,7 @@ class StudioApp(tk.Tk):
                 self.progress_state.reset();self.progress_value.set(0);self.percent_text.set('0 %')
                 self.progress_text.set('Sin operación — 0 %')
             self.last_gimbal_model=selected
+        self.operation_buttons[self.operation_actions.index('Identificar')].configure(text='Consultar FC y gimbal (Flip)' if selected==FLIP else 'Identificar equipo')
         self.vision_action_heading.configure(text='DJI FLIP · CONEXIÓN USB' if selected==FLIP else 'VISIÓN · MINI 4 PRO / AIR 3')
         profile_button=self.operation_buttons[self.operation_actions.index(USB_PROFILE_ACTION)]
         for button,action in zip(self.operation_buttons,self.operation_actions):
@@ -513,7 +546,7 @@ class StudioApp(tk.Tk):
             for widget in self.legacy_calibration_widgets:widget.grid_remove()
             self.flip_gimbal.grid(row=0,column=0,columnspan=2,sticky='nsew')
             if not self.running:self.select_page('Calibración')
-            self.action_canvas.yview_moveto(1)
+            self.action_canvas.yview_moveto(0)
         else:
             self.flip_gimbal.grid_remove()
             for widget in self.legacy_calibration_widgets:widget.grid()
@@ -588,6 +621,8 @@ class StudioApp(tk.Tk):
             while True:
                 kind,data=self.events.get_nowait()
                 if kind=='log':self.append(data)
+                elif kind=='flip_query':
+                    self.flip_gimbal.apply_module_report(data);self.report['gimbal']={'module_query':data}
                 elif kind=='flip_profile':
                     self.flip_gimbal.apply_report(data);self.report['gimbal']={'usb_profile':data}
                 elif kind=='vision':
@@ -598,7 +633,7 @@ class StudioApp(tk.Tk):
                     self.results.insert('', 'end',text=data['modulo'],values=(data['estado'],data.get('hardware','—'),data.get('firmware_modulo','—')))
                 elif kind in ('result','error'):
                     self.report['resultado']=data;self.progress_state.finish(kind=='result',data['detalle']);self.status.set(data['detalle']);self.append(json.dumps(data,ensure_ascii=False,indent=2))
-                    if self.report['accion'] in ('Identificar','Módulos','Diagnóstico'):self.connection_text.set(data['estado'])
+                    if self.report['accion'] in ('Identificar','Módulos','Diagnóstico'):self.connection_text.set('Consulta de versiones del Flip · calibración pendiente' if self.report.get('modelo_declarado')==FLIP else data['estado'])
                 elif kind=='packets':self.report['paquetes']=data
                 elif kind=='done':
                     self.running=False;self.progress_bar.stop();self._set_busy(False);self.render_progress()

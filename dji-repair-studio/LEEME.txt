@@ -1,37 +1,36 @@
-DJI REPAIR STUDIO 1.8.0 — Windows 10/11 x64
+DJI REPAIR STUDIO 1.8.1 — Windows 10/11 x64
 
-Extrae el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.8.0.exe.
-Se añade DJI Flip como proyecto de calibración de taller del gimbal.
-IMPORTANTE: JointCoarse y LinearHall del Flip todavía NO están implementadas.
-Esta versión añade su perfil y lectura USB; no ejecuta una calibración del Flip.
+Extrae el ZIP en una carpeta nueva y abre DJI REPAIR Studio 1.8.1.exe.
+DJI Flip: firmware 01.00.1500 declarado por el usuario.
+JointCoarse y LinearHall del Flip todavía NO están implementadas.
 
-DJI FLIP — FIRMWARE 01.00.1500 DECLARADO POR EL USUARIO
-1. Selecciona DJI Flip en Modelo seleccionado.
-2. Se abre su espacio de gimbal en Calibración; revisa el firmware declarado.
-3. Conecta solo el Flip y pulsa Recopilar perfil USB en el lateral.
-4. Guarda y comparte DJIFlip-PerfilUSB-....zip, incluso si hay un error.
+CONSULTAR CONTROLADOR Y GIMBAL DEL FLIP
+El perfil 1.8.0 recibido ya contiene los descriptores de MI04: OUT04/IN85 bulk512.
+La prueba nueva busca respuestas de versión de ambos módulos:
+1. Conecta solo el Flip y selecciona DJI Flip / USB bulk en el programa.
+2. Pulsa Consultar FC y gimbal (Flip), en el lateral.
+3. Selecciona tu ZIP DJIFlip-PerfilUSB-....zip de 1.8.0 como referencia.
+4. Guarda un ZIP nuevo DJIFlip-Modulos-....zip y compártelo, incluso si hay error.
 
-El informe está separado de visión y de los otros modelos. No necesitas elegir
-Mavic 3 o Mini 3 para esta lectura. El 100 % indica inventario guardado.
-La lectura no mueve el gimbal, entra en fábrica ni ejecuta comandos de sensores.
-La enumeración puede leer descriptores estándar; no cambia drivers o firmware.
-Si otra aplicación ocupa el USB, ciérrala. Otro PID queda en PnP aunque no esté
-admitido por la fase actual de descriptores libusb0 2CA3:0020.
+Se comprueban el producto/nodo actual y endpoints contra el perfil antes de abrir
+la consulta. Si cambiaste de puerto y no coincide el nodo, recopila un perfil nuevo.
+Cierra otras herramientas que ocupen el USB. No cambies el modelo para ejecutar
+esta prueba; se utiliza la ruta propia del Flip.
 
-Todavía faltan las peticiones, respuestas y modo de taller contrastados para
-las dos rutinas del Flip. El perfil USB no acredita por sí solo compatibilidad.
-DJI-FLIP.md detalla el estado. No se habilitan comandos de otro modelo por analogía.
+Solo dos peticiones DUML 00/01, una al controlador y otra al gimbal, sin reenvíos.
+Se reclama y libera MI04. No se envían órdenes de fábrica/calibración, se cambian
+parámetros o configuran interfaces. No se cargan DLL DJI. El 100 % exige dos
+respuestas con formato de versión reconocido y el ZIP guardado; no es calibración.
 
-OTROS MODELOS
-Se conservan las funciones anteriores con sus límites. La calibración óptica
-Mini 4 Pro y Air 3 sigue pendiente; sus documentos se incluyen. Los firmware y
-resultados de gimbal se separan al cambiar de modelo y se limpia la preparación
-de fábrica. El receptor de imágenes propio x86 no se modifica en esta entrega.
+El ZIP incluye un BIN con RX crudo e informe gimbal.module_query. Conserva los
+bytes aunque no haya respuesta reconocida. Las versiones de módulo no sustituyen
+el firmware de aeronave de DJI Fly. Falta de respuesta o un formato distinto no
+prueban un gimbal averiado. La compatibilidad de la consulta aún requiere esta
+prueba física. La calibración exige además contrastar el protocolo de taller.
 
 VALIDACIÓN
-344 pruebas de aplicación/interfaz y 11 de empaquetado aprobadas. Arranque del
-EXE x64 bajo Wine con fixtures sintéticos y registros históricos. No se ha probado
-la lectura de conexión en un DJI Flip físico. CfgMgr32 de Wine devuelve longitud
-USB cero y se conserva como error, no como inventario real.
-No se ejecutan DLL DJI en cloud ni se distribuyen DLL/configuraciones/capturas
-originales del usuario. Ver validacion-1.8.0.json, fuentes y licencias incluidas.
+362 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 bajo Wine con
+fixtures: 2 respuestas, 78 bytes RX, 26 bytes OUT y ninguna orden de calibración.
+No se ha probado esta consulta en un Flip físico. Las funciones anteriores se
+conservan con sus límites; calibración óptica Mini 4 Pro/Air 3 todavía pendiente.
+Fuentes/licencias y validacion-1.8.1.json incluidos. Ver DJI-FLIP.md.

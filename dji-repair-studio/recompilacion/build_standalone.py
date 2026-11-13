@@ -100,7 +100,7 @@ for name,data,typ in entries:
     manifest.append({'name':name,'type':typ.decode(),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
 offset=len(body);body.extend(table)
 body.extend(struct.pack('!8sIIII64s',MAGIC,len(body)+88,offset,len(table),313,b'python313.dll'.ljust(64,b'\0')))
-out=ROOT/'DJI REPAIR Studio 1.8.0.exe';out.write_bytes(set_checksum(boot+body))
+out=ROOT/'DJI REPAIR Studio 1.8.1.exe';out.write_bytes(set_checksum(boot+body))
 # Read the finished archive back and validate all members and code objects.
 b=out.read_bytes();at=b.rfind(MAGIC);_,ln,to,tl,ver,lib=struct.unpack('!8sIIII64s',b[at:]);start=at+88-ln
 prefix=bytearray(b[:start]);struct.pack_into("<I",prefix,PE(boot).opt+64,0)

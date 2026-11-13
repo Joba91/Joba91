@@ -1,7 +1,7 @@
 DJI REPAIR Studio
 
 Base y motor de servicio: archivos facilitados por el usuario.
-Interfaz unificada: studio_app.py y launch.py, versión 1.8.0.
+Interfaz unificada: studio_app.py y launch.py, versión 1.8.1.
 Protocolos de calibración: reimplementación a partir del material MyMavCaliTool3 /
 YanDron suministrado por el usuario. No se ejecutan ni distribuyen sus DLL .NET.
 No se incluye su bloque fijo de escritura IMU.
@@ -124,3 +124,11 @@ La copia pública de o-gs/dji-firmware-tools consultada el 13 de noviembre de
 2026 no incluye Flip. No se copian sus procedimientos Air 3/Mini 3 ni se ejecutan
 comandos de taller del Flip. Se reutiliza únicamente el inventario de conexión,
 con informe gimbal.usb_profile y pruebas sintéticas específicas del nuevo destino.
+
+Revisión 1.8.1: flip_gimbal_query.py, implementación propia de consulta limitada
+00/01 usando studio_protocol.py ya incluido. Preflight basado en los descriptores
+Flip aportados por el usuario, sin copiar su número de serie al programa. El ZIP
+de referencia se elige localmente y se compara con el padre actual antes de
+reclamar MI04. Dos consultas máximo, sin reenvíos; no acepta 04/08 o 00/44.
+Se guardan RX/auditoría y versiones candidatas, no salud o identidad autenticada.
+No se valida la calibración del Flip por analogía con otras aeronaves.

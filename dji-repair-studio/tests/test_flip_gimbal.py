@@ -60,16 +60,16 @@ class FlipGuiTests(unittest.TestCase):
         self.assertEqual(self.app.tabs.select(),str(self.app.pages['Calibración']))
         self.assertTrue(self.app.flip_gimbal.winfo_manager());self.assertFalse(self.app.prepared.get())
         from studio_app import USB_PROFILE_ACTION
-        button=self.app.operation_buttons[self.app.operation_actions.index(USB_PROFILE_ACTION)]
+        button=self.app.operation_buttons[self.app.operation_actions.index('Identificar')]
         self.assertGreaterEqual(button.winfo_rooty(),self.app.action_canvas.winfo_rooty())
         self.assertLessEqual(button.winfo_rooty()+button.winfo_height(),self.app.action_canvas.winfo_rooty()+self.app.action_canvas.winfo_height())
     def test_only_inventory_and_offline_actions_enabled(self):
         from studio_app import USB_PROFILE_ACTION
         for button,action in zip(self.app.operation_buttons,self.app.operation_actions):
-            self.assertEqual(str(button['state'])=='normal',action in (USB_PROFILE_ACTION,'Analizar','Generar','Convertir'),action)
+            self.assertEqual(str(button['state'])=='normal',action in (USB_PROFILE_ACTION,'Identificar','Analizar','Generar','Convertir'),action)
     def test_no_entry_path_runs_another_aircraft_calibration_or_sensor_query(self):
         from studio_app import VISION_ACTIONS,USB_PROFILE_ACTION
-        actions=['JointCoarse','LinearHall','Entrar modo fabrica','Salir modo fabrica','Identificar','Módulos','Diagnóstico','Parámetros','Cámara','Gimbal heredado']+[a for a in VISION_ACTIONS if a!=USB_PROFILE_ACTION]
+        actions=['JointCoarse','LinearHall','Entrar modo fabrica','Salir modo fabrica','Módulos','Diagnóstico','Parámetros','Cámara','Gimbal heredado']+[a for a in VISION_ACTIONS if a!=USB_PROFILE_ACTION]
         with patch('studio_app.messagebox.showinfo'),patch('studio_app.backend.open_serial_port') as opening,patch('studio_app.filedialog.askopenfilename') as files:
             for action in actions:self.app.dispatch(action)
             self.app.dispatch_vision('Capturar USB pasivo')
@@ -107,3 +107,38 @@ class FlipGuiTests(unittest.TestCase):
         self.app.model.set('Mavic 3');self.app.update()
         self.assertEqual(self.app.firmware.get(),'01.00.0600');self.assertFalse(self.app.prepared.get())
         self.assertFalse(self.app.flip_gimbal.winfo_manager())
+
+@unittest.skipUnless(os.environ.get('DISPLAY') or os.name=='nt','Requires a graphical display')
+class FlipQueryGuiTests(unittest.TestCase):
+    setUp=FlipGuiTests.setUp
+    tearDown=FlipGuiTests.tearDown
+    wait_idle=FlipGuiTests.wait_idle
+    def test_version_query_uses_own_transport_and_displays_both_module_versions(self):
+        from test_flip_query import save_reference,Exchange
+        from flip_gimbal_query import query_flip_modules,load_reference
+        profile=save_reference(self.root/'profile.zip');out=self.root/'query.zip'
+        ex=Exchange(load_reference(profile,'01.00.1500'))
+        def query(*args,**kwargs):
+            return query_flip_modules(*args,**kwargs,transport_factory=lambda ref:ex.transport,clock=ex.clock)
+        with patch('studio_app.query_flip_modules',side_effect=query),patch('studio_app.filedialog.askopenfilename',return_value=str(profile)),patch('studio_app.filedialog.asksaveasfilename',return_value=str(out)),patch('studio_app.backend.open_serial_port') as legacy:
+            self.app.dispatch('Identificar');self.wait_idle()
+        legacy.assert_not_called();self.assertTrue(out.is_file())
+        data=self.app.report['gimbal']['module_query']
+        self.assertEqual(len(self.app.flip_gimbal.nodes.get_children()),2)
+        self.assertEqual(data['bulk_out_bytes_confirmed'],26)
+        self.assertFalse(data['calibration_available']);self.assertEqual(data['factory_commands_sent'],0)
+        self.assertEqual(self.app.progress_value.get(),100)
+        self.assertIn('calibración pendiente',self.app.connection_text.get())
+    def test_cancelled_or_bad_reference_opens_no_transport_or_output_dialog(self):
+        with patch('studio_app.filedialog.askopenfilename',return_value=''),patch('studio_app.filedialog.asksaveasfilename') as output,patch('studio_app.query_flip_modules') as query:
+            self.app.dispatch('Identificar')
+        output.assert_not_called();query.assert_not_called()
+        bad=self.root/'bad.zip';bad.write_bytes(b'not a zip')
+        with patch('studio_app.filedialog.askopenfilename',return_value=str(bad)),patch('studio_app.filedialog.asksaveasfilename') as output,patch('studio_app.messagebox.showerror') as error,patch('studio_app.query_flip_modules') as query:
+            self.app.dispatch('Identificar')
+        error.assert_called_once();output.assert_not_called();query.assert_not_called()
+    def test_serial_mode_is_not_used_for_the_flip_probe(self):
+        self.app.mode.set('port')
+        with patch('studio_app.messagebox.showerror') as error,patch('studio_app.filedialog.askopenfilename') as files:
+            self.app.dispatch('Identificar')
+        error.assert_called_once();files.assert_not_called()

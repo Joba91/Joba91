@@ -1,37 +1,38 @@
-# DJI REPAIR Studio 1.8.0
+# DJI REPAIR Studio 1.8.1
 
-Windows 10/11 x64, una ventana con botones laterales. Se añade el **proyecto de
-gimbal DJI Flip**, firmware **01.00.1500 declarado** por el usuario.
-**JointCoarse y LinearHall del Flip todavía no están implementadas.**
+Windows 10/11 x64, una interfaz. DJI Flip, firmware 01.00.1500 declarado:
+se añade una **consulta experimental de versión al controlador y al gimbal**.
+**JointCoarse y LinearHall del Flip siguen pendientes de implementación.**
 
 [Descarga](../downloads/LEEME.md) · [DJI Flip](DJI-FLIP.md) ·
 [Mini 4 Pro](VISION-MINI4PRO.md) · [Air 3](VISION-AIR3.md)
 
-## Cambio de esta versión
+## Resultado y siguiente prueba
 
-Flip tiene una vista propia en Calibración y lectura de conexión USB. El botón
-Recopilar perfil USB genera un ZIP con `gimbal.usb_profile`. El firmware se
-conserva por modelo; la preparación de fábrica y resultados previos se limpian
-al cambiar de equipo. Los eventos de la vista de visión no cambian Flip a Mini 4.
-Las operaciones heredadas quedan bloqueadas para Flip antes de abrir transporte.
-No se asigna un código interno ni se copian comandos de otro modelo.
+El perfil Flip 1.8.0 recibido contiene ocho nodos PnP y seis alias con descriptores
+completos. MI04 ofrece OUT04/IN85 bulk512, configuración 1/alternativa 0. Nombre
+USB genérico DJI-…; no se asume una identidad comercial por esa cadena.
 
-Para continuar: selecciona DJI Flip, revisa 01.00.1500 y pulsa Recopilar perfil USB.
-Comparte DJIFlip-PerfilUSB-….zip. Esa lectura no mueve ni calibra el gimbal. Hace
-falta además contrastar el modo de taller, peticiones y respuestas de ambas
-rutinas para este modelo. Los descriptores por sí solos no resuelven eso.
+En 1.8.1 selecciona DJI Flip y pulsa **Consultar FC y gimbal (Flip)**. Elige tu
+ZIP previo DJIFlip-PerfilUSB-….zip y guarda DJIFlip-Modulos-….zip. El mismo ZIP
+previo se usa como referencia; no hace falta repetir el inventario ya recibido.
+Se compara producto y nodo actual con ese perfil y se revisan los endpoints antes
+de reclamar MI04. Solo se permiten dos solicitudes 00/01, sin reenvíos. Se guardan
+RX crudo, auditoría y campos observados en `gimbal.module_query`, en la misma vista.
 
-Se mantienen las funciones anteriores de otros modelos con sus límites. La
-calibración óptica Mini 4 Pro/Air 3 sigue pendiente; sus rutas de sensores se
-mantienen separadas de Flip. [Estado de visión](ESTADO-VISION-2026-11-06.md).
+No se aceptan órdenes de fábrica/calibración, configuración o paquetes arbitrarios.
+Los campos de versión usan el formato común del proyecto y conservan el original;
+no son identidad autenticada o diagnóstico de salud. Falta probar la consulta en
+el Flip real y resolver el contrato de las rutinas de taller pedidas.
 
-## Desarrollo y validación
+## Validación
 
-Python 3.13/Tk. `python launch.py` y `python -m unittest discover -s tests -v`.
-Compilación en Windows: build_windows.ps1. Fuentes y licencias incluidas.
-344 pruebas de aplicación/interfaz y 11 de empaquetado. Arranque x64 bajo Wine,
-fixtures sintéticos y corpus históricos; sin hardware Flip en cloud. El receptor
-x86 propio se conserva; no se reconstruye ni se prueba su arranque en este kernel.
-El inventario puede leer descriptores estándar; no consulta sensores o cambia
-configuración. CfgMgr32 de Wine devuelve longitud USB cero y se guarda como error.
-No se ejecutan programas DJI en cloud ni se redistribuyen sus DLL o registros.
+362 pruebas de aplicación/interfaz y 11 de empaquetado. EXE x64 bajo Wine con
+fixtures sintéticos y corpus históricos; no hay Flip conectado en cloud. Prueba
+sintética: dos respuestas, 78 bytes RX, 26 bytes OUT, cero órdenes de fábrica o
+calibración, MI04 liberada y ZIP guardado. No se ejecutan programas DJI en cloud.
+
+Se mantienen las funciones previas y sus límites. La calibración óptica de
+Mini 4 Pro/Air 3 sigue pendiente. Fuentes y licencias incluidas. Desarrollo:
+Python 3.13/Tk, `python launch.py`, pruebas `python -m unittest discover -s tests -v`,
+compilación Windows `build_windows.ps1`. El receptor propio x86 no se modifica.

@@ -4,7 +4,7 @@ from vision_targets import target_info
 FLIP = 'DJI Flip'
 GIMBAL_PROJECTS = {FLIP: {'firmware_declared':'01.00.1500',
     'firmware_source':'declarado por el usuario', 'requested_calibrations':['JointCoarse','LinearHall'],
-    'calibration_available':False,'factory_commands_verified':False,'internal_product_code':None}}
+    'usb_descriptors_observed':True,'module_version_query_available':True,'calibration_available':False,'factory_commands_verified':False,'internal_product_code':None}}
 
 
 def usb_target_info(model):
