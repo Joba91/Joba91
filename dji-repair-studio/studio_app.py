@@ -29,6 +29,7 @@ from gimbal_profiles import FLIP, GIMBAL_PROJECTS
 from flip_gimbal_view import FlipGimbalView
 from flip_gimbal_query import query_flip_modules,load_reference
 from flip_gimbal_calibration import run_flip_calibration,load_calibration_reference
+from flip_calibration_analysis import analyze_flip_trial
 
 MODELS = ('Mavic 3','Mavic 3 Pro','Mavic 3E','Mavic 3T','Mavic 3 Classic',
           'Mavic 3 Cine','Mavic 4 Pro','Mini 3 Pro','Mini 4 Pro','Air 3','Mini 5 Pro',FLIP)
@@ -292,6 +293,7 @@ class StudioApp(tk.Tk):
 
     def dispatch(self,action):
         if self.running:return
+        if self.model.get()==FLIP and action=='Analizar':self.analyze_flip_trial_file();return
         if self.model.get()==FLIP and action not in ('Analizar','Generar','Convertir'):
             if action==USB_PROFILE_ACTION:self.dispatch_flip_profile()
             elif action=='Identificar':self.dispatch_flip_query()
@@ -328,6 +330,26 @@ class StudioApp(tk.Tk):
         self.status.set('Ejecutando: '+action);self.append('>>> '+action+' · '+self.model.get())
         if action in ('Identificar','Módulos','Diagnóstico'):self.select_page('Registro')
         threading.Thread(target=self.worker,args=(action,po,options),daemon=True).start()
+
+    def analyze_flip_trial_file(self):
+        path=filedialog.askopenfilename(parent=self,title='Analizar ZIP de JointCoarse o LinearHall · sin conectar el dron',filetypes=[('Prueba Flip','*.zip')])
+        if not path:return
+        self.select_page('Calibración');self.flip_gimbal.clear();self.report=None
+        self.save_button.configure(state='disabled');self.progress_state.reset()
+        self.progress_value.set(0);self.percent_text.set('0 %')
+        self.progress_text.set('Analizando archivo · no es una calibración')
+        try:data=analyze_flip_trial(path)
+        except Exception as exc:
+            self.status.set('No se pudo analizar el ZIP: '+str(exc))
+            messagebox.showerror('Análisis de prueba Flip',str(exc),parent=self);return
+        self.flip_gimbal.apply_calibration_analysis(data)
+        self.report={'herramienta':'DJI REPAIR Studio','version':VERSION,'modelo_declarado':FLIP,
+            'firmware_declarado':data['firmware_declared'],'accion':'Analizar prueba Flip',
+            'fecha_unix':time.time(),'gimbal':{'calibration_analysis':data},
+            'resultado':{'estado':'archivo_analizado','detalle':data['detail']},'progreso':[],'paquetes':[]}
+        self.progress_state.update({'mode':'determinate','percent':100,'label':'Análisis del ZIP finalizado · no calibra ni consulta el dron'})
+        self.render_progress();self.status.set(data['detail']);self.save_button.configure(state='normal')
+        self.append(json.dumps(data,ensure_ascii=False,indent=2))
 
     def dispatch_flip_calibration(self,routine):
         if self.running:return
@@ -576,6 +598,7 @@ class StudioApp(tk.Tk):
         for routine in ('JointCoarse','LinearHall'):
             self.operation_buttons[self.operation_actions.index(routine)].configure(text=routine+' · prueba Flip' if selected==FLIP else routine)
         self.operation_buttons[self.operation_actions.index('Identificar')].configure(text='Consultar FC y gimbal (Flip)' if selected==FLIP else 'Identificar equipo')
+        self.operation_buttons[self.operation_actions.index('Analizar')].configure(text='Analizar prueba Flip (ZIP)' if selected==FLIP else 'Analizar paquete HEX')
         self.vision_action_heading.configure(text='DJI FLIP · CONEXIÓN USB' if selected==FLIP else 'VISIÓN · MINI 4 PRO / AIR 3')
         profile_button=self.operation_buttons[self.operation_actions.index(USB_PROFILE_ACTION)]
         for button,action in zip(self.operation_buttons,self.operation_actions):

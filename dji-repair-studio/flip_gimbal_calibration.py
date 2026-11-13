@@ -15,6 +15,7 @@ from flip_gimbal_query import FlipVersionTransport
 from studio_protocol import Client,Decoder,version_request,is_version_reply
 from studio_service import packet
 from studio_version import VERSION
+from flip_calibration_analysis import status_reference
 from vision_support_bundle import write_support_bundle
 
 ROUTINES={'JointCoarse':1,'LinearHall':2}
@@ -86,7 +87,7 @@ class FlipCalibrationTransport(FlipVersionTransport):
 
 
 def is_report(frame):
-    return frame[4:6]==b'\x04\x0a' and frame[9:11]==b'\x04\x30' and not frame[8]&7
+    return frame[4:6]==b'\x04\x0a' and frame[9:11]==b'\x04\x30' and frame[8]==0
 
 
 def run_flip_calibration(destination,module_zip,firmware,routine,cancelled=lambda:False,progress=lambda e:None,
@@ -105,6 +106,8 @@ def run_flip_calibration(destination,module_zip,firmware,routine,cancelled=lambd
             'calibration_delivery_uncertain':False,'device_reported_completion':False,'device_reported_failure':False,
             'ack_received':False,'ack_allowed_by_probe_policy':False,'progress_reports':[],'unknown_reports':[],
             'packet_audit':[],'report_count':0,'report_preview_limit':300,'audit_preview_limit':1024,'monitor_limit_seconds':max_seconds,'support_bundle':str(path),'capture_path':str(capture),'stop_command_sent':False}
+    result.update(status_counts={},last_status_payload=None,last_status_reference=None,
+                  flip_status_mapping_validated=False,routine_timeout_reported_by_common_reference=False)
     t=None;client=None;received=b'';sequence=None
     def audit(record):
         if len(result['packet_audit'])<1024:result['packet_audit'].append(record)
@@ -149,25 +152,41 @@ def run_flip_calibration(destination,module_zip,firmware,routine,cancelled=lambd
                             result.update(state='inicio_no_confirmado',detail='Respuesta inicial FB: esta prueba no confirma inicio. No se reenvía ni se cambia el modo de fábrica.');finish=True;break
                     elif is_report(frame):
                         result['report_count']+=1
+                        code=data.hex();result['last_status_payload']=code
+                        # Bounded cardinality even for an unexpected firmware layout.
+                        if code in result['status_counts'] or len(result['status_counts'])<64:
+                            result['status_counts'][code]=result['status_counts'].get(code,0)+1
+                        result['last_status_reference']=status_reference(data)
                         audit({'direccion':'RX','type':'asynchronous_report','hex':frame.hex(' ')})
                         if data.hex() in STAGES[routine]:
                             first_progress=not recognized;recognized.add(data.hex())
                             if len(result['progress_reports'])<300:result['progress_reports'].append(data.hex())
                             if first_progress:event(75,'Progreso posterior a la petición observado · 3/4 hitos de comunicación')
+                        elif data==b'\x64\x04':
+                            result.update(state='timeout_rutina_segun_referencia',routine_timeout_reported_by_common_reference=True,
+                                detail='El gimbal emitió 64 04: TIMEOUT según la referencia común. La causa física y la validación específica en Flip siguen pendientes. No hay fin 64 00.')
+                            # Keep capturing: the reference is not a validated Flip terminal policy.
                         elif data==b'\x64\x03':
                             result.update(state='fallo_informado_por_equipo',device_reported_failure=True,
                                 detail='El equipo emitió 64 03 después de la petición. No se asigna una causa física.');finish=True;break
                         elif data==b'\x64\0':
                             result['device_reported_completion']=True
+                            if result['routine_timeout_reported_by_common_reference']:
+                                result.update(state='informes_finales_incompatibles',detail='Se observaron 64 04 y 64 00 en la misma prueba. Se conserva la ambigüedad; no se declara éxito.')
+                                finish=True;break
                             if recognized and result['ack_allowed_by_probe_policy']:
                                 result.update(state='equipo_informa_fin',detail='ACK correlacionado, progreso posterior y fin 64 00 observados. No valida exactitud mecánica ni metrológica.');finish=True;break
                             result.update(state='fin_no_confirmado',detail='Se observó 64 00 sin inicio/progreso suficiente para esta prueba. No se declara éxito.');finish=True;break
                         else:
                             if len(result['unknown_reports'])<300:result['unknown_reports'].append(data.hex())
                 if finish:break
-            if not finish:result.update(state='tiempo_agotado',detail='Monitorización agotada sin fin verificable. No se reenvía, cambia de modo o declara calibración completada.')
+            if not finish and not result['routine_timeout_reported_by_common_reference']:
+                result.update(state='tiempo_agotado',detail='Monitorización agotada sin fin verificable. No se reenvía, cambia de modo o declara calibración completada.')
         except Exception as exc:
-            result.update(state='lectura_detenida' if isinstance(exc,InterruptedError) else 'error',detail=str(exc),error=str(exc))
+            result['error']=str(exc)
+            if result['routine_timeout_reported_by_common_reference'] and not isinstance(exc,InterruptedError):
+                result['monitoring_error']=str(exc);result['detail']+=' La lectura terminó además con un error: '+str(exc)
+            else:result.update(state='lectura_detenida' if isinstance(exc,InterruptedError) else 'error',detail=str(exc))
             if hasattr(exc,'flip_evidence'):result['usb_evidence']=exc.flip_evidence
         finally:
             if client and not result['packet_audit']:result['packet_audit']=client.packets

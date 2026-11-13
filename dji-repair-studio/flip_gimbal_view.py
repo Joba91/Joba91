@@ -1,4 +1,4 @@
-"""Flip gimbal workspace. USB inventory is available; calibration is not."""
+"""Flip gimbal workspace with experimental probes and offline trial review."""
 import json
 import re
 import tkinter as tk
@@ -65,5 +65,17 @@ class FlipGimbalView(ttk.Frame):
         self.clear();self.summary.set(data.get('detail','Sin fin verificable de la prueba.'))
         for key,text in [('#0','Prueba'),('product','Estado'),('driver','Progreso observado'),('endpoints','Fin del equipo')]:
             self.nodes.heading(key,text=text)
-        self.nodes.insert('','end',text=data['routine'],values=(data['state'],', '.join(dict.fromkeys(data.get('progress_reports',[]))),str(data.get('device_reported_completion',False))))
+        observed=list(dict.fromkeys(data.get('progress_reports',[])))
+        if data.get('last_status_payload') and data['last_status_payload'] not in observed:observed.append(data['last_status_payload'])
+        self.nodes.insert('','end',text=data['routine'],values=(data['state'],', '.join(observed),str(data.get('device_reported_completion',False))))
+        self.evidence.configure(state='normal');self.evidence.insert('1.0',json.dumps(data,ensure_ascii=False,indent=2));self.evidence.configure(state='disabled')
+
+    def apply_calibration_analysis(self,data):
+        self.clear();self.summary.set(data['detail'])
+        for key,text in [('#0','Archivo de prueba'),('product','Estados capturados'),('driver','Referencia común'),('endpoints','Error USB registrado')]:
+            self.nodes.heading(key,text=text)
+        ref=data.get('timeout_reference') or {};err=data.get('source_usb_read_error') or {}
+        self.nodes.insert('','end',text=data['routine'],values=(
+            ', '.join(f'{k} ×{v}' for k,v in data['status_counts'].items()),
+            ref.get('common_name','Sin interpretación confirmada'),str(err.get('backend_error_code','—'))))
         self.evidence.configure(state='normal');self.evidence.insert('1.0',json.dumps(data,ensure_ascii=False,indent=2));self.evidence.configure(state='disabled')

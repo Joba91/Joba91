@@ -502,6 +502,30 @@ def main():
                 'idle_reads_handled':trial['usb_evidence']['read_timeouts'],
                 'single_calibration_request':trial['calibration_requests_attempted']==1,
                 'real_usb_operations':0}
+            # Import a synthetic failed historical trial through the actual UI.
+            import studio_app
+            req=next(p for p in trial['packet_audit'] if p['direccion']=='TX' and bytes.fromhex(p['hex'])[9:11]==b'\x04\x08')
+            seq=int.from_bytes(bytes.fromhex(req['hex'])[6:8],'little')
+            historical={'modelo_declarado':FLIP,'firmware_declarado':'01.00.1500','version':'SYNTHETIC',
+                'gimbal':{'calibration_probe':{'routine':'JointCoarse','state':'error','packet_audit':[req],
+                    'usb_evidence':{'read_error':{'type':'USBError','backend_error_code':-5}}}}}
+            historical_raw=packet(4,10,seq,4,8,b'\0',flags=128)+packet(4,10,80,4,0x30,b'\x52\1',flags=0)+packet(4,10,81,4,0x30,b'\x64\4',flags=0)
+            history_zip=croot/'historical.zip'
+            with ZipFile(history_zip,'x') as z:
+                z.writestr('DJI-REPAIR-informe.json',json.dumps(historical));z.writestr('historical.bin',historical_raw)
+            saved_dialog=studio_app.filedialog.askopenfilename
+            try:
+                studio_app.filedialog.askopenfilename=lambda **kw:str(history_zip)
+                app.dispatch('Analizar');app.update()
+            finally:studio_app.filedialog.askopenfilename=saved_dialog
+            analysis=app.report['gimbal']['calibration_analysis']
+            assert analysis['state']=='timeout_segun_referencia' and analysis['usb_operations']==0
+            assert analysis['source_usb_read_error']['backend_error_code']==-5
+            assert analysis['status_counts']=={'5201':1,'6404':1}
+            report['flip_trial_analysis_synthetic_test']={'state':analysis['state'],'common_reference_name':'TIMEOUT',
+                'source_usb_error':-5,'historical_only':True,'real_usb_operations':0,'device_writes':0,
+                'physical_calibration_validated':False,'flip_mapping_validated':False,'ui_rows':len(app.flip_gimbal.nodes.get_children()),
+                'analysis_percent':app.progress_value.get(),'analysis_label_explicit':'Análisis del ZIP' in app.progress_text.get()}
         app.close_window()
         path = Path(sys.argv[sys.argv.index('--smoke-test')+1])
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')

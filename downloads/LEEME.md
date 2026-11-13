@@ -1,56 +1,37 @@
-# DJI REPAIR Studio 1.9.1
+# DJI REPAIR Studio 1.9.2
 
-[Descargar ZIP con EXE · Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.9.1.zip)
+[Descargar ZIP con EXE · Windows 10/11 x64](https://raw.githubusercontent.com/Joba91/Joba91/main/downloads/DJI_Repair_Studio_1.9.2.zip)
 
-Extrae en una carpeta nueva y abre **DJI REPAIR Studio 1.9.1.exe**.
-**JointCoarse y LinearHall del Flip están disponibles como pruebas experimentales.
-La compatibilidad con este modelo todavía no está validada físicamente.**
+Extrae en una carpeta nueva y abre **DJI REPAIR Studio 1.9.2.exe**.
+Esta entrega mejora el diagnóstico; **todavía no resuelve la falta de movimiento
+de yaw y roll ni valida una calibración completa del Flip**.
 
-La captura 1.8.1 recibida confirma dos respuestas de versión correlacionadas en
-MI04: controlador 01.00.0057 y gimbal 00.00.2052 (versiones internas de módulo).
-La prueba JointCoarse 1.9.0 se detuvo durante la lectura previa: cero órdenes
-de calibración, dos versiones coincidentes y seis tramas válidas (400 bytes).
-1.9.1 corrige el timeout -116 de libusb0 que PyUSB clasificaba como USBError
-genérico en Windows; guarda códigos y contador de timeouts. Los otros errores
-USB se propagan. La corrección todavía necesita la nueva prueba con tu Flip.
+## Revisar la captura existente sin conectar el dron
 
-## Primera prueba: JointCoarse
+1. Selecciona **DJI Flip**.
+2. Pulsa **Analizar prueba Flip (ZIP)** en el lateral.
+3. Elige **DJIFlip-JointCoarse-20261113-155452.zip**.
 
-1. Selecciona **DJI Flip / USB bulk**, firmware declarado **01.00.1500**.
-2. Pulsa **JointCoarse · prueba Flip**.
-3. Selecciona el mismo **DJIFlip-Modulos-20261113-134015.zip** con las dos respuestas de versión.
-   El ZIP de JointCoarse fallido no es la referencia.
-4. Guarda un ZIP nuevo de prueba y lee la confirmación del programa.
-5. Comparte **DJIFlip-JointCoarse-….zip**, incluso si hay error o no inicia.
+El lector debe mostrar 5201 ×599, 6404 ×10 y el error USB registrado -5. No hace
+falta repetir JointCoarse ni ejecutar LinearHall para revisar ese archivo.
+El 100 % de esta acción significa análisis del ZIP finalizado; no es calibración.
 
-El gimbal puede moverse por sus límites y el firmware puede guardar ajustes.
-Retira el protector y las hélices y deja libre el recorrido. Detener lectura no
-frena motores. Conviene revisar esa primera captura antes de probar LinearHall.
+La definición común de calibración identifica el estado 04 como TIMEOUT.
+Se revisaron los enums y el decodificador nativo estáticamente en una referencia
+pública de DJI Fly. La autenticidad del APK y la semántica exacta del firmware
+Flip no están verificadas. No se asigna una causa mecánica a partir de ese código.
 
-## Comportamiento y límites
+El informe de las pruebas conserva el estado y el error de lectura posterior.
+Los informes contradictorios 64 04 y 64 00 no se convierten en éxito.
+Las peticiones y restricciones experimentales JointCoarse/LinearHall se conservan.
+No se añaden órdenes de fábrica, reintentos ni parámetros IMU fijos.
 
-Se comprueban de nuevo el producto/nodo/endpoints y ambas versiones actuales
-contra el ZIP elegido. Progreso de calibración previo impide otra solicitud.
-Solo una petición 04/08: 01 JointCoarse o 02 LinearHall. No se reenvía, activa
-fábrica automáticamente, fuerza otra interfaz o escriben tablas IMU fijas.
-El modo actual no está identificado; la rutina podría no iniciar si exige otro.
+392 pruebas de aplicación/interfaz y 11 de empaquetado aprobadas. EXE x64 bajo
+Wine con capturas sintéticas; sin hardware Flip en cloud. Se incluyen fuentes,
+licencias, informe de investigación y validación. No se redistribuyen capturas
+originales ni bibliotecas DJI.
 
-El 100 % exige ACK correlacionado admitido, progreso posterior conocido, fin
-64 00 y ZIP guardado. Cuenta hitos de comunicación, no movimiento físico.
-ACK solo, fin sin progreso, rechazo y tiempo agotado no se presentan como éxito.
-Un resultado positivo es fin informado por el equipo, no exactitud metrológica
-verificada. El informe mantiene desconocida la calibración realizada físicamente.
-
-RX y auditoría se guardan en `gimbal.calibration_probe`, hasta 1 MiB y 180 segundos
-como límites. La persistencia de parámetros por el firmware no está caracterizada.
-No hay scripts de fábrica o reintentos automáticos ante un rechazo. [Detalle](../dji-repair-studio/DJI-FLIP.md).
-
-379 pruebas de aplicación/interfaz y 11 de empaquetado aprobadas. EXE bajo Wine
-con trazas sintéticas, sin Flip físico en cloud. Fuentes, licencias y verificaciones
-incluidas. No se ejecutan programas DJI en desarrollo ni se redistribuyen sus
-capturas o identificadores originales. Las funciones previas conservan sus límites.
-
+[Investigación 64 04](../dji-repair-studio/INFORME-FLIP-6404.md) ·
 [DJI Flip](../dji-repair-studio/DJI-FLIP.md) ·
 [Mini 4 Pro](../dji-repair-studio/VISION-MINI4PRO.md) ·
-[Air 3](../dji-repair-studio/VISION-AIR3.md) ·
-[Código](../dji-repair-studio)
+[Air 3](../dji-repair-studio/VISION-AIR3.md)

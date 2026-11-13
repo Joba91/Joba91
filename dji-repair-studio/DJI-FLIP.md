@@ -1,4 +1,4 @@
-# DJI Flip · pruebas de taller del gimbal · 1.9.1
+# DJI Flip · pruebas de taller del gimbal · 1.9.2
 
 Firmware de aeronave **01.00.1500 declarado por el usuario**. Se incorporan
 **JointCoarse y LinearHall como pruebas experimentales** con la petición común
@@ -18,7 +18,21 @@ según el formato común del proyecto. No sustituyen el firmware de aeronave de 
 Fly. Hubo dos peticiones completas (26 bytes OUT), ninguna orden de calibración
 ni fábrica. El orden de alias cambió y se identificó MI04 por metadatos.
 
-## Ejecutar una prueba
+## Revisar la captura actual sin repetir calibración
+
+1. Abre DJI REPAIR Studio 1.9.2.exe y selecciona DJI Flip.
+2. Pulsa **Analizar prueba Flip (ZIP)** en el lateral.
+3. Elige DJIFlip-JointCoarse-20261113-155452.zip.
+
+El análisis debe mostrar 5201 ×599, 6404 ×10 y el error USB registrado -5.
+TIMEOUT es una interpretación de la referencia común, todavía sin validación
+específica en Flip. El análisis no abre USB ni calibra. El 100 % en esta acción
+significa archivo analizado. [Detalles](INFORME-FLIP-6404.md).
+
+Esta versión no corrige todavía el movimiento ausente de yaw y roll. Conserva
+la captura; no hace falta repetir JointCoarse o ejecutar LinearHall para analizarla.
+
+## Flujo experimental disponible (sin cambios de petición)
 
 La captura JointCoarse de 1.9.0 se detuvo antes de transmitir la calibración:
 400 bytes RX, seis tramas de CRC válido y las dos versiones coincidentes, pero
@@ -30,11 +44,11 @@ puede convertirlo en USBError genérico por la diferencia con errno.ETIMEDOUT.
 Otros errores siguen deteniendo la prueba. El informe guarda códigos y contador
 de timeouts. Esto corrige la preparación; no confirma compatibilidad Flip.
 
-Repite primero JointCoarse con el mismo **DJIFlip-Modulos-20261113-134015.zip**.
+La referencia de las pruebas sigue siendo **DJIFlip-Modulos-20261113-134015.zip**.
 El ZIP de JointCoarse fallido no sustituye la referencia de módulos. No necesitas
 recopilar otro perfil USB si el mismo dispositivo sigue asociado a la referencia.
 
-1. Extrae la versión nueva y abre DJI REPAIR Studio 1.9.1.exe.
+1. Extrae la versión nueva y abre DJI REPAIR Studio 1.9.2.exe.
 2. Selecciona **DJI Flip / USB bulk** y revisa firmware declarado **01.00.1500**.
 3. Pulsa **JointCoarse · prueba Flip** o **LinearHall · prueba Flip**.
 4. Elige tu **DJIFlip-Modulos-….zip** con las dos respuestas de versión recibidas.
@@ -69,6 +83,12 @@ implementación contrastada. No se llama a start_factory de otro producto.
 
 ## Qué acepta como fin
 
+Si aparece 64 04 se conserva TIMEOUT según referencia común y se sigue leyendo
+dentro de los límites existentes. Una lectura USB fallida posterior no borra
+esa observación. Si también aparece 64 00, el resultado queda ambiguo y no
+produce 100 %. No se ha confirmado la causa específica en Flip.
+
+
 Un ACK correlacionado con payload admitido por la política de prueba (00/01 para
 JointCoarse; 00/01/02 para LinearHall) solo cuenta como confirmación inicial.
 Se exige además progreso **posterior** conocido de 04/30 y un fin `64 00`.
@@ -101,7 +121,7 @@ fijos desde la herramienta. Ante entrega USB incierta tampoco se reenvía.
 
 ## Validación y procedencia
 
-379 pruebas de aplicación/interfaz y 11 de empaquetado. Casos de dos rutinas,
+392 pruebas de aplicación/interfaz y 11 de empaquetado. Casos de dos rutinas,
 progreso previo, referencia alterada, versión actual distinta, ACK solo, rechazo,
 secuencia errónea, timeout, desconexión, cancelación y entrega incompleta.
 El EXE se ejecuta bajo Wine con transporte sintético. No hay calibración física

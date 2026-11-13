@@ -113,6 +113,30 @@ class FlipQueryGuiTests(unittest.TestCase):
     setUp=FlipGuiTests.setUp
     tearDown=FlipGuiTests.tearDown
     wait_idle=FlipGuiTests.wait_idle
+    def test_offline_trial_button_loads_zip_without_device_or_calibration(self):
+        from test_flip_calibration_analysis import synthetic_trial
+        report,raw=synthetic_trial();p=self.root/'trial.zip'
+        with ZipFile(p,'w') as z:
+            z.writestr('DJI-REPAIR-informe.json',json.dumps(report));z.writestr('trial.bin',raw)
+        button=self.app.operation_buttons[self.app.operation_actions.index('Analizar')]
+        self.assertEqual(button['text'],'Analizar prueba Flip (ZIP)')
+        with patch('studio_app.filedialog.askopenfilename',return_value=str(p)),patch('studio_app.backend.open_serial_port') as legacy,patch('studio_app.run_flip_calibration') as calibration,patch('studio_app.query_flip_modules') as query:
+            self.app.dispatch('Analizar');self.app.update()
+        legacy.assert_not_called();calibration.assert_not_called();query.assert_not_called()
+        r=self.app.report['gimbal']['calibration_analysis']
+        self.assertEqual(r['state'],'timeout_segun_referencia');self.assertEqual(r['usb_operations'],0)
+        self.assertEqual(self.app.progress_value.get(),100);self.assertIn('Análisis del ZIP',self.app.progress_text.get())
+        self.assertEqual(len(self.app.flip_gimbal.nodes.get_children()),1)
+        self.assertIn('TIMEOUT',self.app.flip_gimbal.summary.get())
+    def test_cancel_and_invalid_trial_do_not_reuse_previous_calibration_result(self):
+        with patch('studio_app.filedialog.askopenfilename',return_value=''),patch('studio_app.analyze_flip_trial') as analyze:
+            self.app.dispatch('Analizar')
+        analyze.assert_not_called();self.assertIsNone(self.app.report)
+        p=self.root/'bad.zip';p.write_bytes(b'not a zip');self.app.report={'old':'result'}
+        with patch('studio_app.filedialog.askopenfilename',return_value=str(p)),patch('studio_app.messagebox.showerror') as error:
+            self.app.dispatch('Analizar')
+        error.assert_called_once();self.assertIsNone(self.app.report);self.assertEqual(self.app.progress_value.get(),0)
+        self.assertEqual(str(self.app.save_button['state']),'disabled')
     def test_version_query_uses_own_transport_and_displays_both_module_versions(self):
         from test_flip_query import save_reference,Exchange
         from flip_gimbal_query import query_flip_modules,load_reference

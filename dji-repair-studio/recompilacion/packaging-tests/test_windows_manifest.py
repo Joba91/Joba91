@@ -28,7 +28,7 @@ class ManifestRegressionTests(unittest.TestCase):
         exports={e.name for e in pe.DIRECTORY_ENTRY_EXPORT.symbols}
         self.assertTrue({b'usb_init',b'usb_open',b'usb_claim_interface',b'usb_bulk_read',b'usb_close'}<=exports)
     def test_new_single_window_build_retains_startup_fix(self):
-        pe=pefile.PE(str(ROOT/'DJI REPAIR Studio 1.9.1.exe'))
+        pe=pefile.PE(str(ROOT/'DJI REPAIR Studio 1.9.2.exe'))
         resource=next(e for e in pe.DIRECTORY_ENTRY_RESOURCE.entries if e.id==24)
         data=resource.directory.entries[0].directory.entries[0].data.struct
         validate_manifest(pe.get_data(data.OffsetToData,data.Size))

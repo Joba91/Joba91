@@ -37,11 +37,15 @@ class CalibrationFixture:
             if scenario not in ('ack_only','terminal_only','fb','timeout','disconnect','cancel'):
                 self.pending.append(report(stage,sender=3 if scenario=='wrong_sender' else 4))
             if scenario not in ('ack_only','fb','timeout','disconnect','cancel'):
-                self.pending.append(report(b'\x64\3' if scenario=='failure' else b'\x64\0',sender=3 if scenario=='wrong_sender' else 4))
+                terminal=b'\x64\x04' if scenario in ('firmware_timeout','timeout_then_disconnect','conflicting_terminal') else b'\x64\3' if scenario=='failure' else b'\x64\0'
+                self.pending.append(report(terminal,sender=3 if scenario=='wrong_sender' else 4))
+            if scenario=='conflicting_terminal':self.pending.append(report(b'\x64\0'))
+            if scenario=='ack_shaped_status':
+                self.pending[-2:]=[packet(4,10,600,4,0x30,stage,flags=128),packet(4,10,601,4,0x30,b'\x64\0',flags=128)]
             return len(req)
         def read(size,timeout):
             self.clock.value+=.2
-            if scenario=='disconnect' and any(r[9:11]==b'\4\10' for r in self.sent):raise OSError('SYNTHETIC disconnected')
+            if scenario in ('disconnect','timeout_then_disconnect') and not self.pending and any(r[9:11]==b'\4\10' for r in self.sent):raise OSError('SYNTHETIC disconnected')
             if not self.pending and scenario in ('libusb0_idle','libusb0_silent','usb_error_before_cal'):
                 from usb.core import USBError
                 raise USBError('SYNTHETIC libusb0 read',-5 if scenario=='usb_error_before_cal' else -116)
@@ -126,6 +130,34 @@ class CalibrationTests(unittest.TestCase):
         events=[];r=self.run_probe(scenario='failure',progress=events.append)
         self.assertEqual(r['state'],'fallo_informado_por_equipo');self.assertTrue(r['device_reported_failure'])
         self.assertFalse(any(e.get('percent')==100 for e in events))
+    def test_6404_is_common_reference_timeout_without_axis_diagnosis_or_retry(self):
+        events=[];r=self.run_probe(scenario='firmware_timeout',progress=events.append)
+        self.assertEqual(r['state'],'timeout_rutina_segun_referencia')
+        self.assertTrue(r['routine_timeout_reported_by_common_reference'])
+        self.assertEqual(r['last_status_payload'],'6404')
+        self.assertEqual(r['status_counts'],{'5201':1,'6404':1})
+        self.assertEqual(r['last_status_reference']['common_name'],'TIMEOUT')
+        self.assertFalse(r['last_status_reference']['physical_cause_confirmed'])
+        self.assertFalse(r['flip_status_mapping_validated'])
+        self.assertFalse(r['device_reported_completion'])
+        self.assertEqual(r['calibration_requests_attempted'],1)
+        self.assertEqual(self.fixture.out.write.call_count,3)
+        self.assertFalse(any(e.get('percent')==100 for e in events))
+    def test_timeout_reference_is_preserved_when_a_later_usb_read_fails(self):
+        r=self.run_probe(scenario='timeout_then_disconnect')
+        self.assertEqual(r['state'],'timeout_rutina_segun_referencia')
+        self.assertIn('SYNTHETIC disconnected',r['monitoring_error'])
+        self.assertEqual(r['last_status_payload'],'6404')
+        self.assertEqual(r['calibration_requests_attempted'],1)
+        self.assertTrue((self.root/'cal.zip').is_file())
+    def test_conflicting_terminal_and_ack_shaped_status_do_not_complete(self):
+        for scenario in ('conflicting_terminal','ack_shaped_status'):
+            with self.subTest(scenario=scenario):
+                events=[];r=self.run_probe(scenario=scenario,progress=events.append)
+                self.assertNotEqual(r['state'],'equipo_informa_fin')
+                self.assertFalse(any(e.get('percent')==100 for e in events))
+                if scenario=='conflicting_terminal':self.assertEqual(r['state'],'informes_finales_incompatibles')
+                else:self.assertEqual(r['report_count'],0)
     def test_timeout_disconnect_and_uncertain_write_preserve_zip_and_never_resend(self):
         for scenario in ('timeout','disconnect','short_write'):
             with self.subTest(scenario=scenario):
